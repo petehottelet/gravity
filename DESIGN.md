@@ -143,11 +143,18 @@ This system describes the implemented Windows document workspace. Native window 
 
 One restrained blue accent sits within a cool neutral palette; warm color marks document state rather than general decoration.
 
+Sidecar tonal ramps are preview-only color references, not additional implementation tokens.
+
 ### Primary
 
 - **Navigation blue (`accent`):** checked controls, selected outline text, selected page boundaries and labels, keyboard focus, and drag insertion markers.
 - **Selection wash (`accent-soft`):** selected mode, sidebar tab, outline row, and page tile.
 - **Text selection (`text-selection`):** translucent overlay on selected PDF text, preserving the content beneath it.
+
+### Tertiary
+
+- **Modified:** the small unsaved-change dot in a document tab, accompanied by textual status.
+- **Search hit:** translucent amber over matched PDF text; matches also receive a separate amber boundary.
 
 ### Neutral
 
@@ -156,11 +163,6 @@ One restrained blue accent sits within a cool neutral palette; warm color marks 
 - **Rule / Control rule / Page rule:** structural separators / Save outline / page edges.
 - **Hover / Pressed / Switch track:** immediate button feedback and the persistent mode group's background.
 - **Status / Tab hover:** quiet status strip and inactive-tab pointer feedback.
-
-### Document State
-
-- **Modified:** the small unsaved-change dot in a document tab, accompanied by textual status.
-- **Search hit:** translucent amber over matched PDF text; matches also receive a separate amber boundary.
 
 **The State Color Rule.** Use blue to communicate action, focus, and selection; keep the surrounding workspace neutral.
 

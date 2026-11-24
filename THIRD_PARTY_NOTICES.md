@@ -41,6 +41,10 @@ This software is based in part on the work of the Independent JPEG Group.
 
 The upstream ICU notice also contains terms for build-support scripts and an Autoconf exception. Those notices are retained unchanged; the build-support scripts are not distributed as part of Gravity's application.
 
+## Optional UI prototype icons
+
+The browser prototype in `docs/ui-draft/` includes 32 Lucide SVG definitions from `lucide-static` 1.79.0. Their ISC license and the applicable Feather MIT notices are retained in [docs/ui-draft/vendor/LICENSE](docs/ui-draft/vendor/LICENSE). These prototype assets are not included in the native application packages.
+
 ## System libraries and development tools
 
 Windows supplies .NET Framework and the Windows APIs. macOS supplies AppKit, PDFKit, and the other system frameworks used by the native application. Gravity uses these installed system libraries; it does not bundle or relicense them. The macOS application does not include the Windows PDFium binary.

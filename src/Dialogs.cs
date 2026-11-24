@@ -146,6 +146,7 @@ namespace Gravity
 
         public const string ShortcutText =
 @"READING
+  Command palette             Ctrl+Shift+P
   Next / previous page        N, P, Page Down, Page Up
   Scroll                      Arrow keys, J, K, H, L
   Scroll one screen           Space, Shift+Space

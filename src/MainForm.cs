@@ -50,6 +50,9 @@ namespace Gravity
         private DocView view;
         private OrganizerView organizer;
         private HomeView home;
+        private SearchPanel searchPanel;
+        private readonly Timer findTimer = new Timer { Interval = 300 };
+        private ToolStripMenuItem miExport, miInsertImages;
         private ContextMenuStrip viewMenu, organizerMenu;
 
         private ToolStripButton bOpen, bSave, bPrint, bUndo, bRedo, bSidebar, bOrganize, bPrev, bNext, bZoomOut, bZoomIn, bRotL, bRotR,
@@ -131,6 +134,13 @@ namespace Gravity
             host.Controls.Add(view);
             host.Controls.Add(organizer);
             host.Controls.Add(home);
+            searchPanel = new SearchPanel { Dock = DockStyle.Bottom, Height = S(210), Visible = false, Font = Font, MatchCase = settings.MatchCase };
+            searchPanel.MatchSelected += match => view.ShowSearchMatch(match);
+            searchPanel.CloseRequested += CloseFind;
+            searchPanel.QueryChanged += delegate { findBox.Text = searchPanel.Query; };
+            searchPanel.CaseChanged += delegate { bMatchCase.Checked = searchPanel.MatchCase; };
+            searchPanel.NextRequested += FindNext;
+            findTimer.Tick += delegate { findTimer.Stop(); StartFind(true); };
 
             sidebar = new Panel { Dock = DockStyle.Left, Width = S(Math.Max(140, settings.SidebarWidth)), BackColor = Color.White, Visible = false };
             var sideHeader = new Label
@@ -173,6 +183,8 @@ namespace Gravity
             content.Controls.Add(pageRail);
             content.Controls.Add(splitter);
             content.Controls.Add(sidebar);
+            content.Controls.Add(searchPanel);
+            content.Resize += delegate { searchPanel.Height = Math.Min(S(210), Math.Max(S(112), content.ClientSize.Height / 3)); };
             content.Resize += delegate { ApplySidebar(); };
 
             BuildToolbar();
@@ -263,6 +275,7 @@ namespace Gravity
             var actions = PageTools();
             var insert = new ToolStripDropDownButton("Insert") { ToolTipText = "Insert pages after the selection" };
             insert.DropDownItems.Add(MI("Pages from File…", null, () => PageAction(InsertFromFileDialog)));
+            insert.DropDownItems.Add(MI("Images…", null, () => PageAction(() => ImportImages(null, true, PastePoint(false)))));
             insert.DropDownItems.Add(MI("Blank Page", null, () => PageAction(InsertBlank)));
             var more = new ToolStripDropDownButton("More") { ToolTipText = "More page actions" };
             pCut = MI("Cut Pages", "Ctrl+X", () => PageAction(CutPages));
@@ -409,12 +422,13 @@ namespace Gravity
                 Padding = new Padding(S(3)),
             };
             bInsert.DropDownItems.Add("Pages from file…", null, delegate { Guard(InsertFromFileDialog); });
+            bInsert.DropDownItems.Add("Images…", null, delegate { Guard(() => ImportImages(null, true, PastePoint(false))); });
             bInsert.DropDownItems.Add("Blank page", null, delegate { Guard(InsertBlank); });
             bInsert.DropDownItems.Add("Paste before the selection", null, delegate { Guard(() => PastePages(true)); });
             bExtract = Btn("", "Copy the selected pages into a new tab", ExtractPages, "Extract");
 
             bMatchCase = new ToolStripButton("Aa") { CheckOnClick = true, ToolTipText = "Match case", AutoToolTip = false, Alignment = ToolStripItemAlignment.Right, Checked = settings.MatchCase, Font = new Font("Segoe UI Semibold", 9f), Margin = new Padding(S(1), S(1), S(4), S(2)) };
-            bMatchCase.CheckedChanged += delegate { settings.MatchCase = bMatchCase.Checked; };
+            bMatchCase.CheckedChanged += delegate { settings.MatchCase = bMatchCase.Checked; searchPanel.MatchCase = bMatchCase.Checked; QueueFind(); };
             bFindNext = Btn("", "Find next (F3)", () => FindNext(true));
             bFindPrev = Btn("", "Find previous (Shift+F3)", () => FindNext(false));
             bFindNext.Alignment = bFindPrev.Alignment = ToolStripItemAlignment.Right;
@@ -425,6 +439,7 @@ namespace Gravity
                 e.SuppressKeyPress = true;
                 FindNext(!e.Shift);
             };
+            findBox.TextChanged += delegate { searchPanel.Query = findBox.Text; QueueFind(); };
 
             var d1 = new ToolStripSeparator();
             var d2 = new ToolStripSeparator();
@@ -482,10 +497,12 @@ namespace Gravity
             miSavePages = MI("Save Selected Pages As…", null, SaveSelectedPagesAs);
             miPrint = MI("&Print…", "Ctrl+P", Print);
             miClose = MI("&Close Tab", "Ctrl+W", () => CloseTab(active));
+            miExport = MI("&Export Pages…", null, ExportPages);
             file.DropDownItems.AddRange(new ToolStripItem[]
             {
                 MI("&Open…", "Ctrl+O", OpenDialog), miRecent, MI("Co&mbine PDFs…", null, CombineFiles), new ToolStripSeparator(),
-                miSave, miSaveAs, miSavePages, new ToolStripSeparator(), miPrint, new ToolStripSeparator(), miClose, MI("E&xit", "Alt+F4", Close),
+                MI("Create PDF from &Images…", null, () => ImportImages(null, false, 0)), new ToolStripSeparator(),
+                miSave, miSaveAs, miSavePages, miExport, new ToolStripSeparator(), miPrint, new ToolStripSeparator(), miClose, MI("E&xit", "Alt+F4", Close),
             });
 
             var edit = new ToolStripMenuItem("&Edit");
@@ -546,16 +563,20 @@ namespace Gravity
             miMoveLater = MI("Move Pages La&ter", "Alt+Right", () => MoveBy(1));
             miInsertBlank = MI("Insert Bla&nk Page", null, InsertBlank);
             miInsertFile = MI("&Insert Pages from File…", null, InsertFromFileDialog);
+            miInsertImages = MI("Insert &Images…", null, () => ImportImages(null, true, PastePoint(false)));
             miExtract = MI("E&xtract Pages to New Tab", null, ExtractPages);
             miSelectAllPages = MI("Select &All Pages", "Ctrl+A", () => PageAction(() => organizer.SelectAll()));
             pagesM.DropDownItems.AddRange(new ToolStripItem[]
             {
                 miCut, miCopy, miPaste, miPasteBefore, miDelete, miDuplicate, new ToolStripSeparator(), miPRotL, miPRotR,
-                miMoveEarlier, miMoveLater, new ToolStripSeparator(), miInsertBlank, miInsertFile, new ToolStripSeparator(),
+                miMoveEarlier, miMoveLater, new ToolStripSeparator(), miInsertBlank, miInsertFile, miInsertImages, new ToolStripSeparator(),
                 miExtract, miSelectAllPages,
             });
 
             var help = new ToolStripMenuItem("&Help");
+            var palette = MI("&Command Palette…", "Ctrl+Shift+P", ShowCommandPalette);
+            palette.Tag = "palette";
+            help.DropDownItems.Add(palette);
             help.DropDownItems.AddRange(new ToolStripItem[] { MI("&Keyboard Shortcuts", "F1", () => Dialogs.Shortcuts(this)), MI("&About Gravity", null, ShowAbout) });
 
             menu.Items.AddRange(new ToolStripItem[] { file, edit, viewM, go, pagesM, help });
@@ -781,6 +802,7 @@ namespace Gravity
         {
             if (tab == active && tab != null) { UpdateUI(); return; }
             SaveActiveState();
+            CloseFind();
             pageSelectionActive = false;
             active = tab;
             ShowMode();
@@ -807,6 +829,7 @@ namespace Gravity
             if (organizer.Parent != parent) parent.Controls.Add(organizer);
             organizer.SidebarMode = !org;
             home.Visible = !has;
+            if (!has || org) CloseFind();
             view.Visible = has && !org;
             pagePanel.Visible = has && !org && !fullscreen && settings.ShowPages;
             pageRail.Visible = has && !org && !fullscreen && !settings.ShowPages;
@@ -873,6 +896,7 @@ namespace Gravity
         {
             var doc = (EditDoc)sender;
             if (active == null || doc != active.Doc) { UpdateTabs(); return; }
+            if (searchPanel.Visible) QueueFind();
             syncingPages = true;
             try
             {
@@ -1109,6 +1133,12 @@ namespace Gravity
 
         private void InsertFiles(string[] files, int at)
         {
+            if (files.Any(ImageImport.Supports))
+            {
+                if (files.All(ImageImport.Supports)) { ImportImages(files, active != null, at); return; }
+                Toast("Drop PDFs and images separately to choose image page sizes.");
+                return;
+            }
             if (active == null) { OpenFiles(files, -1); return; }
             var refs = LoadPages(files);
             if (refs.Count == 0) return;
@@ -1206,7 +1236,8 @@ namespace Gravity
             {
                 Cursor = Cursors.Default;
                 WatchFile(tab);
-                MessageBox.Show(this, "Could not save “" + Path.GetFileName(path) + "”.\n\n" + ex.Message, "Gravity", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show(this, "Could not save “" + Path.GetFileName(path) + "”.\n\n" + ex.Message +
+                    "\n\nYour edits are still open. Close any application using the destination, then retry, or use Save As to choose another file.", "Gravity", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return false;
             }
             Cursor = Cursors.Default;
@@ -1323,9 +1354,11 @@ namespace Gravity
         {
             if (active == null) return;
             if (Organizing) SetOrganize(false);
+            if (presentationMode) TogglePresentation();
             if (fullscreen && !presentationMode) SetFullscreen(false);
-            findBox.Focus();
-            findBox.SelectAll();
+            searchPanel.Visible = true;
+            UpdateUI();
+            searchPanel.FocusQuery();
         }
 
         private void FindNext(bool forward)
@@ -1333,7 +1366,108 @@ namespace Gravity
             if (active == null || Organizing) return;
             string q = findBox.Text;
             if (string.IsNullOrEmpty(q)) { FocusFind(); return; }
-            view.Find(q, forward, bMatchCase.Checked);
+            searchPanel.Visible = true;
+            if (findTimer.Enabled || (!searchPanel.Complete && !searchPanel.Searching)) StartFind(forward);
+            else if (searchPanel.Complete) searchPanel.Next(forward);
+        }
+
+        private void QueueFind()
+        {
+            bool typingInToolbar = findBox.Focused;
+            findTimer.Stop(); searchPanel.Reset(); view.ClearHit();
+            if (active == null || Organizing || string.IsNullOrEmpty(findBox.Text)) return;
+            searchPanel.Visible = true; UpdateUI(); findTimer.Start();
+            if (typingInToolbar) searchPanel.FocusQuery(false);
+        }
+
+        private void StartFind(bool forward)
+        {
+            findTimer.Stop();
+            if (active == null || Organizing || !searchPanel.Visible) return;
+            searchPanel.Search(Pages, findBox.Text, bMatchCase.Checked, view.CurrentPage, forward);
+        }
+
+        private void CloseFind()
+        {
+            findTimer.Stop(); searchPanel.Reset(); searchPanel.Visible = false;
+            view.ClearHit();
+            if (menu != null) UpdateUI();
+        }
+
+        private void ShowCommandPalette()
+        {
+            UpdateUI();
+            FillRecentMenu();
+            using (var palette = new CommandPalette(PaletteCommand.FromMenu(menu.Items)))
+                if (palette.ShowDialog(this) == DialogResult.OK && palette.SelectedCommand != null)
+                    palette.SelectedCommand.Item.PerformClick();
+        }
+
+        private void ExportPages()
+        {
+            if (active == null || Pages.Count == 0) return;
+            var snapshot = new List<PageRef>(Pages);
+            string name = Path.GetFileNameWithoutExtension(active.Doc.DisplayName);
+            using (PdfSource.Retain(snapshot))
+            using (var options = new ExportDialog(snapshot.Count, view.CurrentPage, Targets()))
+            {
+                if (options.ShowDialog(this) != DialogResult.OK) return;
+                string destination;
+                if (options.Format == 2)
+                {
+                    using (var save = new SaveFileDialog { Filter = "Text files (*.txt)|*.txt", DefaultExt = "txt", AddExtension = true, OverwritePrompt = true,
+                        FileName = DocumentExport.SafeStem(name) + ".txt", Title = "Export text" })
+                    {
+                        if (save.ShowDialog(this) != DialogResult.OK) return;
+                        destination = save.FileName;
+                    }
+                }
+                else
+                {
+                    using (var folder = new FolderBrowserDialog { Description = "Choose a folder for the exported page images" })
+                    {
+                        if (folder.ShowDialog(this) != DialogResult.OK) return;
+                        destination = folder.SelectedPath;
+                    }
+                }
+                int format = options.Format, resolution = options.Resolution;
+                var indices = options.Indices;
+                {
+                    bool done = WorkDialog.Run(this, "Export pages", (cancel, progress) =>
+                    {
+                        if (format == 2) DocumentExport.Text(snapshot, indices, destination, cancel, progress);
+                        else DocumentExport.Images(snapshot, indices, destination, name, resolution, format == 1, cancel, progress);
+                    });
+                    Toast(done ? "Exported " + Count(indices.Count) : format == 2 ? "Text export cancelled. The destination was not changed." : "Export cancelled. Completed images remain in the export folder.");
+                }
+            }
+        }
+
+        private void ImportImages(IEnumerable<string> initial, bool insert, int at)
+        {
+            if (insert && active == null) return;
+            var target = active;
+            using (var options = new ImagesDialog(initial, insert))
+            {
+                if (options.ShowDialog(this) != DialogResult.OK) return;
+                var files = options.Files; var layout = options.Options;
+                byte[] bytes = null;
+                if (!WorkDialog.Run(this, "Import images", (cancel, progress) => bytes = ImageImport.Create(files, layout, cancel, progress))) return;
+                var source = PdfSource.FromBytes(bytes, null);
+                var refs = Enumerable.Range(0, source.PageCount).Select(i => new PageRef(source, i, 0)).ToList();
+                if (insert && target == active)
+                {
+                    var list = new List<PageRef>(Pages);
+                    list.InsertRange(Math.Max(0, Math.Min(at, list.Count)), refs);
+                    ApplyEdit(list, refs, Count(refs.Count) + " inserted from images");
+                }
+                else
+                {
+                    var tab = new DocTab { Doc = new EditDoc(refs, "Images.pdf"), View = new ViewState { Mode = settings.DefaultZoom }, Organize = true };
+                    AddTab(tab); ActivateTab(tab);
+                    Toast("Created " + Count(refs.Count) + " — reorder pages here, then Ctrl+S to save");
+                }
+            }
         }
 
         private void FocusPageBox()
@@ -1611,7 +1745,7 @@ namespace Gravity
         // Keyboard
         // =====================================================================
 
-        private bool TextFocused { get { return findBox.Focused || pageBox.Focused || zoomBox.Focused; } }
+        private bool TextFocused { get { return findBox.Focused || searchPanel.QueryFocused || pageBox.Focused || zoomBox.Focused; } }
 
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
@@ -1634,6 +1768,7 @@ namespace Gravity
             switch (k)
             {
                 case Keys.Control | Keys.O: OpenDialog(); return true;
+                case Keys.Control | Keys.Shift | Keys.P: ShowCommandPalette(); return true;
                 case Keys.Control | Keys.S: if (has) Save(active); return true;
                 case Keys.Control | Keys.Shift | Keys.S: if (has) SaveAs(active); return true;
                 case Keys.Control | Keys.P: Print(); return true;
@@ -1663,7 +1798,7 @@ namespace Gravity
                 if (n >= 0 && n < tabs.Count) ActivateTab(tabs[n]);
                 return true;
             }
-            if (text || tree || !has) return false;
+            if (text || tree || searchPanel.ContainsFocus || !has) return false;
 
             switch (k)
             {
@@ -1754,6 +1889,7 @@ namespace Gravity
         {
             if (presentationMode) { TogglePresentation(); return true; }
             if (fullscreen) { SetFullscreen(false); return true; }
+            if (searchPanel.Visible) { CloseFind(); FocusCanvas(); return true; }
             if (inText) { UpdateUI(); FocusCanvas(); return true; }
             if (active != null && !Organizing)
             {
@@ -1784,7 +1920,7 @@ namespace Gravity
                 foreach (var it in docGroup) it.Visible = has;
                 foreach (var it in readGroup) it.Visible = has && !org;
                 foreach (var it in editGroup) it.Visible = has && org;
-                foreach (var it in findGroup) it.Visible = has && !org;
+                foreach (var it in findGroup) it.Visible = has && !org && !searchPanel.Visible;
                 bool pageTargets = PageTargets;
                 int selCount = !has ? 0 : pageTargets ? organizer.SelectedIndices().Count : (n > 0 ? 1 : 0);
                 var panelIndices = organizer.SelectedIndices();
@@ -1820,6 +1956,7 @@ namespace Gravity
 
                 miSave.Enabled = bSave.Enabled;
                 miSaveAs.Enabled = has && n > 0;
+                miExport.Enabled = has && n > 0;
                 miSavePages.Enabled = has && selCount > 0;
                 miPrint.Enabled = bPrint.Enabled;
                 miClose.Enabled = has;
@@ -1852,6 +1989,7 @@ namespace Gravity
                 miMoveEarlier.Enabled = miMoveLater.Enabled = selCount > 0 && n > 1;
                 miPaste.Enabled = miPasteBefore.Enabled = has && clipboard.Count > 0;
                 miInsertBlank.Enabled = miInsertFile.Enabled = has;
+                miInsertImages.Enabled = has;
                 miSelectAllPages.Enabled = org || pagePanel.Visible;
                 // Some keys mean different things in the two modes; show them where they apply.
                 miCopyText.ShortcutKeyDisplayString = pageTargets ? "" : "Ctrl+C";
@@ -1886,7 +2024,16 @@ namespace Gravity
         {
             var files = e.Data.GetData(DataFormats.FileDrop) as string[];
             if (files == null) return;
-            BeginInvoke((Action)delegate { OpenFiles(files, -1); });
+            BeginInvoke((Action)delegate
+            {
+                Guard(() =>
+                {
+                    var images = files.Where(ImageImport.Supports).ToArray();
+                    if (images.Length > 0) ImportImages(images, false, 0);
+                    var pdfs = files.Where(f => !ImageImport.Supports(f)).ToArray();
+                    if (pdfs.Length > 0) OpenFiles(pdfs, -1);
+                });
+            });
         }
 
         private void Guard(Action a)
@@ -1940,6 +2087,7 @@ namespace Gravity
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
             foreach (var t in tabs) StopWatching(t);
+            findTimer.Stop(); findTimer.Dispose(); searchPanel.Cancel();
             renderer.Dispose();
             base.OnFormClosed(e);
         }

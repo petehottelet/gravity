@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gravity — compare the UI</title>
+  <link rel="stylesheet" href="compare.css">
+</head>
+<body>
+  <header class="comparison-header">
+    <div><h1>Gravity, with room to read.</h1><p>The selected Lucide design, alongside the existing interface.</p></div>
+    <a class="open-draft" href="draft.html" target="_blank" rel="noopener">Open selected design</a>
+  </header>
+  <main>
+    <div class="comparison-controls">
+      <div class="segmented" role="group" aria-label="View to compare">
+        <button data-scene="reading" aria-pressed="true">Reading</button>
+        <button data-scene="organizing" aria-pressed="false">Organizing</button>
+      </div>
+      <div class="segmented display-switch" role="group" aria-label="Comparison layout">
+        <button data-layout="before" aria-pressed="false">Existing</button>
+        <button data-layout="both" aria-pressed="true">Side by side</button>
+        <button data-layout="after" aria-pressed="false">Selected design</button>
+      </div>
+    </div>
+    <div class="comparison-stage" data-layout="both">
+      <section class="version before">
+        <div class="version-title"><h2>Existing design</h2><span>Saved reference</span></div>
+        <div class="screen"><img id="reference" src="../reading.png" width="1264" height="780" alt="Existing Gravity reading view with its compact toolbar and bookmarks sidebar"></div>
+        <p class="caption">Original icons and control styling.</p>
+      </section>
+      <section class="version after">
+        <div class="version-title"><h2>Lucide design</h2><span>Selected direction</span></div>
+        <div class="screen"><iframe id="draft" title="Selected Gravity Lucide UI draft" src="draft.html?mode=reading&embed=1" width="1264" height="780"></iframe></div>
+        <p class="caption">Consistent icons. Clearer groups. More comfortable controls.</p>
+      </section>
+    </div>
+    <section class="tradeoffs" aria-label="Design differences">
+      <div><h3>Apple-inspired clarity</h3><p>One main toolbar, familiar segmented controls, and a clear relationship between a selection and its actions.</p></div>
+      <div><h3>Tufte-inspired restraint</h3><p>The document carries the detail. Quiet surfaces, direct page labels, and repeated thumbnail scales support comparison.</p></div>
+      <div><h3>The tradeoff</h3><p>Larger controls are easier to identify and target. The existing design packs more commands into less space.</p></div>
+    </section>
+    <footer><p>Selected visual prototype · Same sample document · No PDFs are modified</p><p>The existing references predate the collapsible Pages panel. The selected draft includes Pages and Outline tabs. “AAA” refers to text contrast targets; full accessibility conformance has not been certified.</p><p><a href="cleanup.html" target="_blank" rel="noopener">View the alternate styling-only study</a></p><p class="sources">References: <a href="https://lucide.dev/">Lucide</a> · <a href="https://developer.apple.com/design/human-interface-guidelines/accessibility">Apple accessibility guidance</a> · <a href="https://www.w3.org/WAI/WCAG22/Understanding/contrast-enhanced.html">WCAG enhanced contrast</a> · <a href="https://www.edwardtufte.com/notebook/">Edward Tufte</a></p></footer>
+  </main>
+  <script src="compare.js"></script>
+</body>
+</html>

@@ -40,6 +40,7 @@ namespace Gravity.Tests
                 T("invalid files are rejected", NotAPdf),
                 T("form filling, saving, and undo", () => FormTests.Run(dir)),
                 T("distribution license notices", DistributionNotices),
+                T("safe saves, search, exports, and image import", () => FeatureTests.Run(dir)),
             };
             foreach (var t in tests)
             {
@@ -49,7 +50,7 @@ namespace Gravity.Tests
             if (!args.Contains("--no-ui"))
             {
                 Console.WriteLine("-- user interface (real window, synthetic mouse and keyboard messages)");
-                try { UiTest.Run(dir); FormTests.RunUI(dir); }
+                try { UiTest.Run(dir); FormTests.RunUI(dir); FeatureTests.RunUI(dir); }
                 catch (Exception ex) { Fail("UI test threw " + ex); }
             }
             Console.WriteLine();

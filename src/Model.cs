@@ -48,6 +48,29 @@ namespace Gravity
         private const int MaxTextPages = 16;
 
         private static readonly List<PdfSource> registry = new List<PdfSource>();
+        private int pins;
+
+        // Background searches and exports keep their immutable page sources alive.
+        public static IDisposable Retain(IEnumerable<PageRef> pages) { return new SourceLease(pages); }
+
+        private sealed class SourceLease : IDisposable
+        {
+            private List<PdfSource> sources;
+            public SourceLease(IEnumerable<PageRef> pages)
+            {
+                sources = pages.Where(p => p.Src != null).Select(p => p.Src).Distinct().ToList();
+                lock (registry) foreach (var source in sources) source.pins++;
+            }
+            public void Dispose()
+            {
+                lock (registry)
+                {
+                    if (sources == null) return;
+                    foreach (var source in sources) source.pins--;
+                    sources = null;
+                }
+            }
+        }
 
         public IntPtr Doc { get; private set; }
         public string FilePath { get; private set; }
@@ -374,7 +397,7 @@ namespace Gravity
         public static List<PdfSource> Collect(HashSet<PdfSource> live)
         {
             List<PdfSource> dead;
-            lock (registry) dead = registry.Where(s => !live.Contains(s)).ToList();
+            lock (registry) dead = registry.Where(s => s.pins == 0 && !live.Contains(s)).ToList();
             foreach (var s in dead) s.Dispose();
             return dead;
         }
@@ -715,26 +738,7 @@ namespace Gravity
         /// <summary>Writes the current pages to a file via a temp file, without changing this document.</summary>
         public void WriteFile(string path)
         {
-            path = Path.GetFullPath(path);
-            string dir = Path.GetDirectoryName(path);
-            string tmp = Path.Combine(dir, "~" + Path.GetFileNameWithoutExtension(path) + "." + Guid.NewGuid().ToString("N").Substring(0, 8) + ".tmp");
-            try
-            {
-                using (var fs = new FileStream(tmp, FileMode.CreateNew, FileAccess.Write, FileShare.None, 1 << 16))
-                    WritePdf(fs);
-                if (File.Exists(path))
-                {
-                    try { File.Replace(tmp, path, null, true); }
-                    catch (IOException) { File.Copy(tmp, path, true); File.Delete(tmp); }
-                    catch (UnauthorizedAccessException) { File.Copy(tmp, path, true); File.Delete(tmp); }
-                }
-                else File.Move(tmp, path);
-            }
-            catch
-            {
-                try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
-                throw;
-            }
+            AtomicFile.Write(path, WritePdf);
         }
 
         /// <summary>Replaces the document with a fresh load of its file (used when it changes on disk).</summary>

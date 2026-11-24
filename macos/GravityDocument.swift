@@ -4,7 +4,7 @@ import PDFKit
 @objc(GravityDocument)
 final class GravityDocument: NSDocument {
     var model = PDFModel()
-    private var originalData: Data?
+    private var preservedData: Data?
     private var password: String?
 
     override init() {
@@ -31,12 +31,13 @@ final class GravityDocument: NSDocument {
             password = input.stringValue
             model = try PDFModel(data: data, password: password)
         }
-        originalData = data
+        preservedData = data
     }
 
     override func data(ofType typeName: String) throws -> Data {
-        // Preserve an unchanged file byte for byte, including its signatures.
-        if !isDocumentEdited, let originalData = originalData { return originalData }
+        // These bytes describe the current snapshot, even after undoing a saved edit.
+        // Preserve them byte for byte, including signatures, until the next edit.
+        if let preservedData = preservedData { return preservedData }
         return try model.data()
     }
 
@@ -47,25 +48,27 @@ final class GravityDocument: NSDocument {
     func edit(_ name: String, operation: () throws -> Void) {
         do {
             let before = try model.data()
+            let snapshot = preservedData ?? before
             do { try operation() }
             catch {
-                model = try PDFModel(data: before, password: password)
+                model = try PDFModel(data: snapshot, password: password)
                 refresh()
                 throw error
             }
             if try model.data() == before { return }
-            originalData = nil
-            undoManager?.registerUndo(withTarget: self) { $0.restore(before, name: name) }
+            preservedData = nil
+            // NSDocument tracks change counts from its undo manager's groups.
+            undoManager?.registerUndo(withTarget: self) { $0.restore(snapshot, name: name) }
             undoManager?.setActionName(name)
-            updateChangeCount(.changeDone)
             refresh()
         } catch { presentError(error) }
     }
 
     private func restore(_ data: Data, name: String) {
         do {
-            let inverse = try model.data()
+            let inverse = try preservedData ?? model.data()
             model = try PDFModel(data: data, password: password)
+            preservedData = data
             undoManager?.registerUndo(withTarget: self) { $0.restore(inverse, name: name) }
             undoManager?.setActionName(name)
             refresh()

@@ -697,7 +697,7 @@ namespace Gravity
             if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return null;
             var files = e.Data.GetData(DataFormats.FileDrop) as string[];
             if (files == null) return null;
-            var pdfs = files.Where(f => string.Equals(Path.GetExtension(f), ".pdf", StringComparison.OrdinalIgnoreCase)).ToArray();
+            var pdfs = files.Where(f => string.Equals(Path.GetExtension(f), ".pdf", StringComparison.OrdinalIgnoreCase) || ImageImport.Supports(f)).ToArray();
             return pdfs.Length > 0 ? pdfs : null;
         }
 

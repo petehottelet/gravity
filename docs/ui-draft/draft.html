@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gravity — Lucide UI draft</title>
+  <link rel="stylesheet" href="draft.css">
+</head>
+<body>
+  <a class="skip-link" href="#workspace">Skip to document</a>
+  <div class="app">
+    <header class="titlebar">
+      <div class="identity"><img src="assets/g-mark.png" alt="" width="23" height="23"><strong>Gravity</strong><span class="concept-label">UI draft</span></div>
+      <div class="document-title"><strong>Sample Guide.pdf</strong><span id="save-state">Sample document</span></div>
+      <a class="compare-link" href="index.html" target="_top">Compare designs</a>
+    </header>
+    <div class="toolbar" aria-label="Document controls">
+      <div class="toolbar-group">
+        <button class="icon-button" data-action="sidebar" aria-label="Hide navigation sidebar" aria-expanded="true" title="Show or hide sidebar"><i data-icon="panel-left"></i></button>
+        <button class="text-button demo-only" data-notice="Opening local PDFs belongs to the native app. This draft uses the sample document."><i data-icon="folder-open"></i><span>Open</span></button>
+      </div>
+      <div class="mode-switch" role="group" aria-label="Document mode">
+        <button data-mode="reading" aria-pressed="true"><i data-icon="book-open"></i>Read</button>
+        <button data-mode="organizing" aria-pressed="false"><i data-icon="grid-2x2"></i>Organize</button>
+      </div>
+      <div class="toolbar-group end-group">
+        <button class="icon-button" data-action="find" aria-label="Find a chapter" aria-expanded="false" title="Find a chapter"><i data-icon="search"></i></button>
+        <button class="icon-button" data-action="undo" aria-label="Undo page change" title="Undo page change" disabled><i data-icon="undo-2"></i></button>
+        <button class="icon-button demo-only optional" data-notice="Printing is available in the native app. No print job was created." aria-label="Print document" title="Print document"><i data-icon="printer"></i></button>
+        <button class="text-button save-button demo-only" data-notice="Changes here are a preview only. No PDF has been written."><i data-icon="save"></i><span>Save</span></button>
+      </div>
+    </div>
+    <div class="findbar" hidden><label for="find-input">Find a chapter</label><input id="find-input" type="search" placeholder="Chapter title or number" autocomplete="off"><span id="find-result" role="status"></span><button class="icon-button" data-action="close-find" aria-label="Close search"><i data-icon="x"></i></button></div>
+    <div class="body-area">
+      <aside class="sidebar" aria-label="Document navigation">
+        <div class="sidebar-tabs" role="group" aria-label="Navigation type"><button data-nav="outline" aria-pressed="true">Outline</button><button data-nav="pages" aria-pressed="false">Pages</button></div>
+        <div class="sidebar-meta"><span>Sample Guide</span><span class="page-total">14 pages</span></div>
+        <nav class="outline" aria-label="Chapters"></nav>
+        <div class="page-rail" aria-label="Page thumbnails" hidden></div>
+        <div class="sidebar-bottom"><i data-icon="book-open"></i><span id="chapter-position">Chapter 1 of 14</span></div>
+      </aside>
+      <main id="workspace" class="workspace" tabindex="-1">
+        <div class="read-controls">
+          <div class="toolbar-group page-stepper"><button class="icon-button" data-action="previous" aria-label="Previous page"><i data-icon="chevron-left"></i></button><label><span class="sr-only">Page number</span><input id="page-number" type="number" value="1" min="1" max="14"></label><span class="page-count">of 14</span><button class="icon-button" data-action="next" aria-label="Next page"><i data-icon="chevron-right"></i></button></div>
+          <div class="toolbar-group zoom-controls"><button class="icon-button" data-action="zoom-out" aria-label="Zoom out"><i data-icon="minus"></i></button><button class="text-button" data-action="fit" title="Reset to fit page"><span id="zoom-label">Fit page</span><i data-icon="chevron-down"></i></button><button class="icon-button" data-action="zoom-in" aria-label="Zoom in"><i data-icon="plus"></i></button></div>
+        </div>
+        <div class="organize-controls" hidden>
+          <div class="selection-description"><strong id="selected-count">1 page selected</strong><button class="select-all" data-action="select-all">Select all</button></div>
+          <div class="page-actions" role="group" aria-label="Selected page actions">
+            <button class="text-button" data-action="rotate"><i data-icon="rotate-cw"></i><span>Rotate</span></button>
+            <button class="text-button" data-action="duplicate"><i data-icon="copy"></i><span>Duplicate</span></button>
+            <button class="text-button" data-action="delete"><i data-icon="trash-2"></i><span>Delete</span></button>
+            <span class="action-divider" aria-hidden="true"></span>
+            <button class="icon-button" data-action="move-up" aria-label="Move selected page earlier" title="Move selected page earlier"><i data-icon="arrow-up"></i></button>
+            <button class="icon-button" data-action="move-down" aria-label="Move selected page later" title="Move selected page later"><i data-icon="arrow-down"></i></button>
+          </div>
+        </div>
+        <div class="reader" aria-label="Document page"><div class="paper"><img id="page-image" src="assets/page-1.png" alt="Sample document, chapter 1: Getting started"><div class="sample-page" hidden><h1 id="sample-heading"></h1><p>This page is represented by a thumbnail in this visual draft.</p><p>Use the outline to move between chapters, or choose Organize to rearrange pages.</p></div></div></div>
+        <div class="organizer" aria-label="Pages to organize" hidden></div>
+        <div class="empty-state" hidden><i data-icon="file-plus-2"></i><h1>No pages left</h1><p>Undo to restore the sample pages.</p><button class="text-button" data-action="undo">Undo deletion</button></div>
+        <footer class="document-status"><span id="status-left">Page 1 of 14</span><span id="status-right">Nothing is written until you save</span></footer>
+      </main>
+    </div>
+  </div>
+  <div class="notice" role="status" hidden><span></span><button class="icon-button" data-action="dismiss-notice" aria-label="Dismiss message"><i data-icon="x"></i></button></div>
+  <script src="vendor/icons.js"></script><script src="draft.js"></script>
+</body>
+</html>

@@ -1429,6 +1429,13 @@ namespace Gravity
             Invalidate();
         }
 
+        public void ShowSearchMatch(SearchMatch match)
+        {
+            CancelSearch();
+            if (match == null || match.Page < 0 || match.Page >= pages.Count || pages[match.Page].Src == null) return;
+            ShowHit(new Hit { Page = match.Page, Char = match.Character, Count = match.Length });
+        }
+
         private void ScrollHitIntoView()
         {
             int page = hitPage;

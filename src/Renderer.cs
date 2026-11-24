@@ -277,28 +277,34 @@ namespace Gravity
         {
             if (w < 1 || h < 1) return null;
             var bmp = new Bitmap(w, h, PixelFormat.Format32bppPArgb);
-            lock (Pdfium.Lock)
+            try
             {
-                var data = bmp.LockBits(new Rectangle(0, 0, w, h), ImageLockMode.WriteOnly, PixelFormat.Format32bppPArgb);
-                try
+                lock (Pdfium.Lock)
                 {
-                    IntPtr fb = Pdfium.FPDFBitmap_CreateEx(w, h, Pdfium.FPDFBitmap_BGRA, data.Scan0, data.Stride);
-                    Pdfium.FPDFBitmap_FillRect(fb, 0, 0, w, h, 0xFFFFFFFF);
-                    IntPtr page = p.Src != null && !p.Src.IsDisposed ? p.Src.GetPage(p.Index) : IntPtr.Zero;
-                    if (page != IntPtr.Zero)
+                    var data = bmp.LockBits(new Rectangle(0, 0, w, h), ImageLockMode.WriteOnly, PixelFormat.Format32bppPArgb);
+                    try
                     {
-                        Pdfium.FPDF_RenderPageBitmap(fb, page, 0, 0, w, h, p.Rotation, flags);
-                        if (Pdfium.FPDF_GetFormType(p.Src.Doc) != 0)
-                            using (var forms = new PdfForms(p.Src.Doc)) forms.Draw(p.Index, fb, 0, 0, w, h, p.Rotation, flags);
+                        IntPtr fb = Pdfium.FPDFBitmap_CreateEx(w, h, Pdfium.FPDFBitmap_BGRA, data.Scan0, data.Stride);
+                        if (fb == IntPtr.Zero) throw new InvalidOperationException("Could not allocate the page bitmap.");
+                        try
+                        {
+                            Pdfium.FPDFBitmap_FillRect(fb, 0, 0, w, h, 0xFFFFFFFF);
+                            IntPtr page = p.Src != null && !p.Src.IsDisposed ? p.Src.GetPage(p.Index) : IntPtr.Zero;
+                            if (p.Src != null && page == IntPtr.Zero) throw new InvalidOperationException("Could not load the page for export or printing.");
+                            if (page != IntPtr.Zero)
+                            {
+                                Pdfium.FPDF_RenderPageBitmap(fb, page, 0, 0, w, h, p.Rotation, flags);
+                                if (Pdfium.FPDF_GetFormType(p.Src.Doc) != 0)
+                                    using (var forms = new PdfForms(p.Src.Doc)) forms.Draw(p.Index, fb, 0, 0, w, h, p.Rotation, flags);
+                            }
+                        }
+                        finally { Pdfium.FPDFBitmap_Destroy(fb); }
                     }
-                    Pdfium.FPDFBitmap_Destroy(fb);
+                    finally { bmp.UnlockBits(data); }
                 }
-                finally
-                {
-                    bmp.UnlockBits(data);
-                }
+                return bmp;
             }
-            return bmp;
+            catch { bmp.Dispose(); throw; }
         }
 
         public void Dispose()

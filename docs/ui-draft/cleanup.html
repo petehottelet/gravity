@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gravity — current layout, Lucide cleanup</title>
+<link rel="stylesheet" href="cleanup.css">
+</head>
+<body>
+<div class="native-app">
+  <nav class="menubar" aria-label="Application menus"><button data-menu="File">File</button><button data-menu="Edit">Edit</button><button data-menu="View">View</button><button data-menu="Go">Go</button><button data-menu="Pages">Pages</button><button data-menu="Help">Help</button></nav>
+  <div class="tabstrip"><div class="document-tab"><span>Sample Guide.pdf</span><button data-action="close-tab" aria-label="Close document" title="Close document"><i data-icon="x"></i></button></div><button class="add-tab" data-action="open" aria-label="Open another document" title="Open another document"><i data-icon="plus"></i></button></div>
+  <div class="toolbar" aria-label="Document toolbar">
+    <button data-action="open" aria-label="Open" title="Open (Ctrl+O)"><i data-icon="folder-open"></i></button>
+    <button data-action="save" aria-label="Save" title="Save (Ctrl+S)" disabled><i data-icon="save"></i></button>
+    <button data-action="print" aria-label="Print" title="Print (Ctrl+P)"><i data-icon="printer"></i></button>
+    <span class="separator"></span>
+    <button data-action="undo" aria-label="Undo" title="Undo (Ctrl+Z)" disabled><i data-icon="undo-2"></i></button>
+    <button data-action="redo" aria-label="Redo" title="Redo (Ctrl+Y)" disabled><i data-icon="redo-2"></i></button>
+    <span class="separator"></span>
+    <button data-action="bookmarks" aria-label="Bookmarks" aria-pressed="true" title="Bookmarks (F12)"><i data-icon="list"></i></button>
+    <button class="labeled" data-action="organize" aria-pressed="false" title="Organize pages (Ctrl+E)"><i data-icon="grid-2x2"></i><span>Organize</span></button>
+    <span class="separator"></span>
+    <div class="read-tools">
+      <button data-action="previous" aria-label="Previous page" title="Previous page"><i data-icon="chevron-up"></i></button>
+      <input id="page-number" type="number" min="1" max="14" value="1" aria-label="Page number"><span id="page-count">of 14</span>
+      <button data-action="next" aria-label="Next page" title="Next page"><i data-icon="chevron-down"></i></button>
+      <span class="separator"></span>
+      <button data-action="zoom-out" aria-label="Zoom out" title="Zoom out"><i data-icon="zoom-out"></i></button>
+      <select id="zoom" aria-label="Zoom"><option>Fit Page</option><option>Fit Width</option><option>Actual Size</option><option>75%</option><option>100%</option><option>125%</option><option>150%</option></select>
+      <button data-action="zoom-in" aria-label="Zoom in" title="Zoom in"><i data-icon="zoom-in"></i></button>
+      <span class="separator"></span>
+      <button data-action="rotate-left" aria-label="Rotate view left" title="Rotate view left"><i data-icon="rotate-ccw"></i></button>
+      <button data-action="rotate-right" aria-label="Rotate view right" title="Rotate view right"><i data-icon="rotate-cw"></i></button>
+    </div>
+    <div class="edit-tools" hidden>
+      <button data-action="cut" aria-label="Cut pages" title="Cut pages"><i data-icon="scissors"></i></button>
+      <button data-action="copy" aria-label="Copy pages" title="Copy pages"><i data-icon="copy"></i></button>
+      <button data-action="paste" aria-label="Paste pages" title="Paste pages" disabled><i data-icon="clipboard"></i></button>
+      <button data-action="delete" aria-label="Delete pages" title="Delete pages"><i data-icon="trash-2"></i></button>
+      <span class="separator"></span>
+      <button data-action="rotate-left" aria-label="Rotate pages left" title="Rotate pages left"><i data-icon="rotate-ccw"></i></button>
+      <button data-action="rotate-right" aria-label="Rotate pages right" title="Rotate pages right"><i data-icon="rotate-cw"></i></button>
+      <span class="separator"></span>
+      <button class="labeled" data-action="insert"><i data-icon="plus"></i>Insert<i class="small-icon" data-icon="chevron-down"></i></button>
+      <button class="labeled" data-action="extract"><i data-icon="file-output"></i>Extract</button>
+    </div>
+    <div class="find-tools"><input id="find" type="search" aria-label="Find a chapter" placeholder="Find"><button data-action="find-previous" aria-label="Previous match" title="Previous match"><i data-icon="chevron-up"></i></button><button data-action="find-next" aria-label="Next match" title="Next match"><i data-icon="chevron-down"></i></button><button data-action="match-case" aria-pressed="false" title="Match case" aria-label="Match case">Aa</button></div>
+  </div>
+  <div class="document-area">
+    <aside class="bookmarks"><h1>Bookmarks</h1><nav aria-label="Document bookmarks"></nav></aside>
+    <main class="canvas" aria-label="Document">
+      <div class="reader"><div class="paper"><img id="document-page" src="assets/page-1.png" alt="Sample Guide, chapter 1: Getting started"><div class="unavailable" hidden><strong></strong><p>Preview unavailable in this visual draft.</p></div></div></div>
+      <div class="organizer" aria-label="Page organizer" hidden></div>
+      <div class="empty" hidden><p>No pages. Use Undo to restore them.</p><button data-action="undo">Undo</button></div>
+    </main>
+  </div>
+</div>
+<div class="menu" hidden></div>
+<div class="notice" role="status" hidden><span></span><button data-action="dismiss" aria-label="Dismiss message"><i data-icon="x"></i></button></div>
+<script src="vendor/icons.js"></script><script src="cleanup.js"></script>
+</body>
+</html>

@@ -79,6 +79,9 @@ namespace Gravity
         [DllImport(Dll, CallingConvention = CC)] public static extern IntPtr FPDFText_LoadStandardFont(IntPtr doc, [MarshalAs(UnmanagedType.LPStr)] string font);
         [DllImport(Dll, CallingConvention = CC)] public static extern void FPDFFont_Close(IntPtr font);
         [DllImport(Dll, CallingConvention = CC)] public static extern IntPtr FPDFPageObj_CreateTextObj(IntPtr doc, IntPtr font, float size);
+        [DllImport(Dll, CallingConvention = CC)] public static extern IntPtr FPDFPageObj_NewImageObj(IntPtr doc);
+        [DllImport(Dll, CallingConvention = CC)] public static extern void FPDFPageObj_Destroy(IntPtr obj);
+        [DllImport(Dll, CallingConvention = CC)] public static extern int FPDFImageObj_SetBitmap(IntPtr pages, int count, IntPtr obj, IntPtr bitmap);
         [DllImport(Dll, CallingConvention = CC)] public static extern int FPDFText_SetText(IntPtr textObj, [MarshalAs(UnmanagedType.LPWStr)] string text);
         [DllImport(Dll, CallingConvention = CC)] public static extern void FPDFPageObj_Transform(IntPtr obj, double a, double b, double c, double d, double e, double f);
         [DllImport(Dll, CallingConvention = CC)] public static extern void FPDFPage_InsertObject(IntPtr page, IntPtr obj);

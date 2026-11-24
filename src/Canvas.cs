@@ -15,8 +15,9 @@ namespace Gravity
         public static readonly Color TabActive = Color.White;
         public static readonly Color Text = Color.FromArgb(0x1F, 0x1F, 0x22);
         public static readonly Color SubtleText = Color.FromArgb(0x6B, 0x6E, 0x76);
-        public static readonly Color Accent = Color.FromArgb(0x00, 0x5F, 0xB8);
-        public static readonly Color AccentSoft = Color.FromArgb(0xD6, 0xE7, 0xF8);
+        public static readonly Color Accent = Color.FromArgb(0x0B, 0x57, 0xD0);       // brand blue
+        public static readonly Color AccentHot = Color.FromArgb(0x08, 0x47, 0xAE);
+        public static readonly Color AccentSoft = Color.FromArgb(0xD8, 0xE5, 0xFB);
         public static readonly Color PageBorder = Color.FromArgb(0xC4, 0xC6, 0xCA);
         public static readonly Color Selection = Color.FromArgb(80, 0x1A, 0x73, 0xE8);
         public static readonly Color SearchHit = Color.FromArgb(120, 0xFF, 0xB0, 0x00);
@@ -62,6 +63,37 @@ namespace Gravity
             p.AddArc(r.X, r.Bottom - d, d, d, 90, 90);
             p.CloseFigure();
             return p;
+        }
+    }
+
+    /// <summary>Brand artwork embedded in the executable (see tools/make_brand.py).</summary>
+    internal static class Brand
+    {
+        private static Image lockup;
+        private static bool lockupLoaded;
+
+        /// <summary>The icon + GRAVITY wordmark lockup, or null if the resource is missing.</summary>
+        public static Image Lockup
+        {
+            get
+            {
+                if (!lockupLoaded)
+                {
+                    lockupLoaded = true;
+                    using (var s = typeof(Brand).Assembly.GetManifestResourceStream("Lockup.png"))
+                        if (s != null)
+                            using (var tmp = new Bitmap(s))
+                                lockup = new Bitmap(tmp);  // copy so the stream can close
+                }
+                return lockup;
+            }
+        }
+
+        /// <summary>The application icon with all of its sizes, or null if the resource is missing.</summary>
+        public static Icon AppIcon()
+        {
+            using (var s = typeof(Brand).Assembly.GetManifestResourceStream("Gravity.ico"))
+                return s != null ? new Icon(s) : null;
         }
     }
 

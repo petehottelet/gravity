@@ -89,7 +89,7 @@ namespace Gravity
             Text = "Gravity";
             Font = new Font("Segoe UI", 9f);
             AutoScaleMode = AutoScaleMode.None;
-            try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch (Exception) { }
+            try { Icon = Brand.AppIcon() ?? Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch (Exception) { }
             MinimumSize = new Size(S(520), S(380));
             BackColor = Theme.Chrome;
             renderer = new RenderService(this);

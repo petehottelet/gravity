@@ -1,8 +1,27 @@
-# Gravity
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/logo-dark.png">
+    <img src="docs/logo-light.png" alt="Gravity" width="520">
+  </picture>
+</p>
 
-A fast, lightweight PDF viewer and page organizer for Windows, modeled on SumatraPDF's minimal reading experience, with the page editing Sumatra leaves out: rearrange, combine, cut, copy and paste pages between PDFs.
+# Gravity — a fast PDF viewer and page organizer
 
-- One ~185 KB executable plus `pdfium.dll` (Chrome's PDF engine). Nothing to install. It runs on the .NET Framework 4.8 that ships with Windows 10 and 11.
+<p align="center">
+  <img alt="Version 1.0.0" src="https://img.shields.io/badge/version-1.0.0-2ea44f.svg">
+  <img alt="Windows 10 | 11" src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0B57D0.svg">
+  <img alt=".NET Framework 4.8" src="https://img.shields.io/badge/.NET%20Framework-4.8-512BD4.svg">
+  <img alt="Engine: PDFium" src="https://img.shields.io/badge/engine-PDFium-555.svg">
+  <img alt="Portable, no install needed" src="https://img.shields.io/badge/portable-no%20install%20needed-555.svg">
+  <br>
+  <img alt="Input: .pdf" src="https://img.shields.io/badge/input-.pdf-777777.svg">
+  <img alt="Pages: reorder, combine, cut and paste, rotate" src="https://img.shields.io/badge/pages-reorder%20%7C%20combine%20%7C%20cut%20%26%20paste%20%7C%20rotate-6f42c1.svg">
+  <img alt="Keyboard: SumatraPDF-style shortcuts" src="https://img.shields.io/badge/keyboard-SumatraPDF--style-0B57D0.svg">
+</p>
+
+A lightweight PDF viewer for Windows, modeled on SumatraPDF's minimal reading experience, with the page editing Sumatra leaves out: rearrange, combine, cut, copy and paste pages between PDFs.
+
+- One ~335 KB executable (about half of it icon artwork) plus `pdfium.dll` (Chrome's PDF engine). Nothing to install. It runs on the .NET Framework 4.8 that ships with Windows 10 and 11.
 - About 65 MB of memory with a couple of documents open.
 - Rendering happens in tiles on a background thread, so scrolling and zooming never wait on the page.
 
@@ -87,6 +106,10 @@ This installs Gravity for the current user. It needs no admin rights and does fo
 
 Windows only lets *you* change a default app, so finish there: click **Set default**, or choose Gravity for `.pdf`.
 
+PDF files then show Gravity's document icon in Explorer:
+
+<img src="assets/gravity-pdf-512.png" alt="Gravity PDF document icon" width="96">
+
 After rebuilding, run the script again to update the installed copy. To remove everything, run `.\tools\install.ps1 -Uninstall`.
 
 Settings and the recent-files list are stored in `%APPDATA%\Gravity\settings.txt`.
@@ -144,6 +167,8 @@ This also writes a portable zip to `dist\`.
 | `src/TabStrip.cs`, `src/HomeView.cs`, `src/Dialogs.cs`, `src/Settings.cs`, `src/Canvas.cs` | Supporting UI |
 | `src/Program.cs` | Startup, single-instance handoff over a per-user named pipe |
 | `tests/` | Engine and UI self-tests |
+| `tools/make_brand.py`, `assets/` | Generates the app icon, the PDF document icon and the logos from the G mark (`assets/g-mark.png`). Needs Pillow and the ONRAMP font from Lost Type (licensed; the font file is never committed): `python tools/make_brand.py` |
+| `tools/install.ps1` | Per-user install, PDF file association, Start menu shortcut |
 
 Edits never touch the loaded PDFs. A tab is a list of page references, possibly from several files, so cut, paste, reorder and undo are instant list operations.
 

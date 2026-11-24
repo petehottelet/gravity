@@ -54,23 +54,24 @@ if ($Uninstall) {
     return
 }
 
-if (-not (Test-Path (Join-Path $bin 'Gravity.exe'))) { throw 'Build first: .\build.ps1' }
+if (-not (Test-Path (Join-Path $bin 'GravityPdf.ico'))) { throw 'Build first: .\build.ps1' }
 if (Test-InstalledRunning) { throw 'Close the installed copy of Gravity before updating it.' }
 
 # 1. Copy the app to a stable per-user location (independent of the build folder).
 New-Item -ItemType Directory -Force $dest | Out-Null
-Copy-Item (Join-Path $bin 'Gravity.exe'), (Join-Path $bin 'pdfium.dll') $dest -Force
+Copy-Item (Join-Path $bin 'Gravity.exe'), (Join-Path $bin 'pdfium.dll'), (Join-Path $bin 'GravityPdf.ico') $dest -Force
 if (Test-Path (Join-Path $bin 'licenses')) { Copy-Item (Join-Path $bin 'licenses') $dest -Recurse -Force }
 
 $command = '"' + $exe + '" "%1"'
 $icon = '"' + $exe + '",0'
+$docIcon = Join-Path $dest 'GravityPdf.ico'   # what PDF files show in Explorer
 
 # 2. A ProgID describing how Gravity opens PDFs.
 Ensure-Key "$classes\$progId\shell\open\command"
 Ensure-Key "$classes\$progId\DefaultIcon"
 Set-Item -Path "$classes\$progId" -Value 'PDF Document'
 Set-ItemProperty -Path "$classes\$progId" -Name 'FriendlyTypeName' -Value 'PDF Document'
-Set-Item -Path "$classes\$progId\DefaultIcon" -Value $icon
+Set-Item -Path "$classes\$progId\DefaultIcon" -Value $docIcon
 Set-Item -Path "$classes\$progId\shell\open\command" -Value $command
 
 # 3. Offer Gravity in "Open with" for .pdf.

@@ -10,3 +10,7 @@ dist/
 .env.*
 *.pem
 *.key
+
+# Python bytecode
+__pycache__/
+*.pyc

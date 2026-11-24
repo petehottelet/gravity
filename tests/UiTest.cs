@@ -145,6 +145,9 @@ namespace Gravity.Tests
             Func<DocTab> active = () => Field<DocTab>(form, "active");
 
             Check(tabs.Count == 3, "three files from the command line open as tabs");
+            using (var appIcon = Brand.AppIcon())
+                Check(appIcon != null && appIcon.Width > 0, "embedded app icon loads");
+            Check(Brand.Lockup != null && Brand.Lockup.Width > Brand.Lockup.Height * 3, "embedded logo lockup loads");
             Check(active() == tabs[2] && view.Visible && view.PageCount == 2, "last file is active in the reading view");
 
             // ---- links and history

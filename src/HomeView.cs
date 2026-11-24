@@ -51,17 +51,15 @@ namespace Gravity
             int x = (Width - colW) / 2;
             int y = Math.Max(S(32), Height / 9);
 
-            using (var title = new Font("Segoe UI Semibold", 22f))
             using (var sub = new Font("Segoe UI", 10f))
             using (var btnFont = new Font("Segoe UI Semibold", 10f))
             using (var itemFont = new Font("Segoe UI", 10f))
             using (var small = new Font("Segoe UI", 8.5f))
             using (var head = new Font("Segoe UI Semibold", 9f))
             {
-                DrawLogo(g, new Rectangle(x, y + S(4), S(40), S(40)));
-                TextRenderer.DrawText(g, "Gravity", title, new Point(x + S(52), y - S(2)), Theme.Text, TextFormatFlags.NoPadding);
-                TextRenderer.DrawText(g, "Fast PDF viewer and page organizer", sub, new Point(x + S(54), y + S(34)), Theme.SubtleText, TextFormatFlags.NoPadding);
-                y += S(84);
+                DrawLockup(g, x, y, S(46));
+                TextRenderer.DrawText(g, "Fast PDF viewer and page organizer", sub, new Point(x + S(1), y + S(56)), Theme.SubtleText, TextFormatFlags.NoPadding);
+                y += S(96);
 
                 var b1 = new Rectangle(x, y, S(190), S(40));
                 var b2 = new Rectangle(b1.Right + S(12), y, S(190), S(40));
@@ -119,7 +117,7 @@ namespace Gravity
 
         private void DrawButton(Graphics g, Rectangle r, string text, string hint, bool primary, Font font, Font small, bool hot)
         {
-            Color bg = primary ? (hot ? Color.FromArgb(0x00, 0x52, 0xA0) : Theme.Accent) : (hot ? Color.FromArgb(0xF3, 0xF6, 0xFA) : Color.White);
+            Color bg = primary ? (hot ? Theme.AccentHot : Theme.Accent) : (hot ? Color.FromArgb(0xF3, 0xF6, 0xFA) : Color.White);
             using (var path = Theme.RoundRect(r, S(6)))
             using (var b = new SolidBrush(bg))
             {
@@ -139,24 +137,17 @@ namespace Gravity
             }
         }
 
-        /// <summary>The app mark: a page falling toward a small mass, drawn with plain shapes.</summary>
-        public static void DrawLogo(Graphics g, Rectangle r)
+        /// <summary>The logo lockup (icon + GRAVITY wordmark) scaled to a height; returns its width.</summary>
+        private int DrawLockup(Graphics g, int x, int y, int height)
         {
-            var old = g.SmoothingMode;
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            float u = r.Width / 40f;
-            using (var page = Theme.RoundRect(new RectangleF(r.X + 7 * u, r.Y + 2 * u, 22 * u, 28 * u), 3 * u))
-            using (var b = new SolidBrush(Theme.Accent))
-                g.FillPath(b, page);
-            using (var lines = new Pen(Color.FromArgb(200, 255, 255, 255), Math.Max(1, 2 * u)))
-            {
-                g.DrawLine(lines, r.X + 12 * u, r.Y + 10 * u, r.X + 24 * u, r.Y + 10 * u);
-                g.DrawLine(lines, r.X + 12 * u, r.Y + 15 * u, r.X + 24 * u, r.Y + 15 * u);
-                g.DrawLine(lines, r.X + 12 * u, r.Y + 20 * u, r.X + 20 * u, r.Y + 20 * u);
-            }
-            using (var dot = new SolidBrush(Color.FromArgb(0xE0, 0x6C, 0x00)))
-                g.FillEllipse(dot, r.X + 24 * u, r.Y + 26 * u, 12 * u, 12 * u);
-            g.SmoothingMode = old;
+            var img = Brand.Lockup;
+            if (img == null) return 0;
+            int width = (int)Math.Round(img.Width * (double)height / img.Height);
+            var oldMode = g.InterpolationMode;
+            g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            g.DrawImage(img, new Rectangle(x, y, width, height));
+            g.InterpolationMode = oldMode;
+            return width;
         }
 
         private object HitTest(Point p)

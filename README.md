@@ -8,9 +8,20 @@
 <p align="center">A lightweight PDF viewer, form filler, and page organizer for Windows and macOS.</p>
 
 <p align="center">
-  <a href="#windows">Windows 10 / 11</a> &nbsp;·&nbsp;
-  <a href="#macos">macOS 12+</a> &nbsp;·&nbsp;
-  <a href="LICENSE">MIT License</a>
+  <img alt="Version 1.0.0" src="docs/badges/version.svg" height="20">
+  <a href="LICENSE"><img alt="License: MIT" src="docs/badges/license.svg" height="20"></a>
+  <a href="#windows"><img alt="Windows 10 | 11" src="docs/badges/windows.svg" height="20"></a>
+  <a href="#macos"><img alt="macOS 12+: source build" src="docs/badges/macos.svg" height="20"></a>
+  <br>
+  <img alt=".NET Framework 4.8" src="docs/badges/dotnet.svg" height="20">
+  <img alt="Swift and PDFKit" src="docs/badges/swift.svg" height="20">
+  <img alt="Windows: portable" src="docs/badges/portable.svg" height="20">
+  <img alt="Mac: Apple Silicon and Intel" src="docs/badges/architecture.svg" height="20">
+  <br>
+  <img alt="Input: .pdf" src="docs/badges/pdf.svg" height="20">
+  <img alt="Pages: reorder, combine, cut and paste, rotate" src="docs/badges/pages.svg" height="20">
+  <a href="#form-filling"><img alt="Forms: fill, save, undo" src="docs/badges/forms.svg" height="20"></a>
+  <a href="#building"><img alt="Tests: offline" src="docs/badges/tests.svg" height="20"></a>
 </p>
 
 Read PDFs, fill existing form fields, and rearrange, combine, cut, copy and paste pages between documents. The Windows app uses the bundled PDF engine; the native macOS app uses Apple's PDFKit.

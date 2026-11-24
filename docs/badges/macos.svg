@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="157" height="20" viewBox="0 0 157 20" role="img" aria-label="macOS: 12+ source build">
+  <title>macOS: 12+ source build</title>
+  <linearGradient id="shade" x2="0" y2="100%">
+    <stop offset="0" stop-color="#fff" stop-opacity=".1"/>
+    <stop offset="1" stop-opacity=".1"/>
+  </linearGradient>
+  <clipPath id="rounded"><rect width="157" height="20" rx="3"/></clipPath>
+  <g clip-path="url(#rounded)">
+    <rect width="51" height="20" fill="#555"/>
+    <rect x="51" width="106" height="20" fill="#555555"/>
+    <rect width="157" height="20" fill="url(#shade)"/>
+  </g>
+  <g fill="#fff" text-anchor="middle" font-family="Verdana,DejaVu Sans,sans-serif" font-size="11">
+    <text x="25.5" y="14">macOS</text>
+    <text x="104" y="14">12+ source build</text>
+  </g>
+</svg>

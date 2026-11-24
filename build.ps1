@@ -49,6 +49,7 @@ New-Item -ItemType Directory -Force $lic | Out-Null
 Copy-Item (Join-Path $root 'third_party\pdfium\LICENSE') (Join-Path $lic 'pdfium-binaries.txt') -Force
 Copy-Item (Join-Path $root 'third_party\pdfium\licenses\*') $lic -Force
 Copy-Item (Join-Path $root 'LICENSE') (Join-Path $lic 'Gravity.txt') -Force
+Copy-Item (Join-Path $root 'THIRD_PARTY_NOTICES.md') $lic -Force
 
 $size = [Math]::Round(((Get-Item "$bin\Gravity.exe").Length / 1KB), 0)
 Write-Host "Built $bin\Gravity.exe ($size KB) + pdfium.dll + GravityPdf.ico"

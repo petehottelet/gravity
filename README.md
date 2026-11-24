@@ -261,6 +261,8 @@ Saving builds the real PDF with the bundled engine in four steps:
 - Printing sends each page as an image at up to 300 DPI, scaled to fit the paper.
 - Startup time depends on how many fonts are installed. GDI+ (used by all WinForms apps) scans the installed fonts once per process. With about 2,800 font families, that scan alone takes about 0.65 s and the window appears in about 0.8 s. Gravity overlaps the scan with loading the document. Machines with a typical font set start noticeably faster.
 
-## Third-party software
+## License
 
-The bundled PDF engine and its components retain their own licenses. Their license texts are in `third_party/pdfium/` and are copied to `bin/licenses/` on build.
+Gravity's original source code is available under the [MIT License](LICENSE), including commercial use, modification, redistribution, and sale, provided the copyright and permission notice is retained.
+
+The bundled Windows PDF engine and its components retain their own licenses. These permit commercial use subject to their notice and other license conditions; they are not relicensed under Gravity's MIT license. See [Third-party notices](THIRD_PARTY_NOTICES.md) for the component inventory and required acknowledgments. The build includes these notices and the full license texts in `bin/licenses/`.

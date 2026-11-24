@@ -39,6 +39,7 @@ namespace Gravity.Tests
                 T("rendering produces ink", Render),
                 T("invalid files are rejected", NotAPdf),
                 T("form filling, saving, and undo", () => FormTests.Run(dir)),
+                T("distribution license notices", DistributionNotices),
             };
             foreach (var t in tests)
             {
@@ -436,6 +437,22 @@ namespace Gravity.Tests
             if (rotated != null) rotated.Dispose();
             s.Dispose();
             Check(RenderService.RenderTile(new TileKey(s, 0, 0, 100, 100, 0, 0)) == null, "disposed source renders nothing");
+        }
+
+        private static void DistributionNotices()
+        {
+            string licenses = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "licenses");
+            var required = new[] {
+                "Gravity.txt", "pdfium-binaries.txt", "pdfium.txt", "abseil.txt", "agg23.txt",
+                "dragonbox-Boost.txt", "dragonbox-Apache2-LLVM.txt", "fast_float.txt", "freetype.txt",
+                "harfbuzz.txt", "highway.txt", "icu.txt", "lcms.txt", "libjpeg_turbo.ijg",
+                "libjpeg_turbo.md", "libopenjpeg.txt", "libpng.txt", "llvm-libc.txt", "simdutf.txt", "zlib.txt"
+            };
+            Check(required.All(name => File.Exists(Path.Combine(licenses, name))), "built application includes every upstream license and Gravity's license");
+            string notices = File.ReadAllText(Path.Combine(licenses, "THIRD_PARTY_NOTICES.md"));
+            Check(notices.Contains("This software is based in part on the work of the FreeType Team.") &&
+                notices.Contains("This software is based in part on the work of the Independent JPEG Group."),
+                "distribution documentation includes both required acknowledgments");
         }
 
         private static void NotAPdf()

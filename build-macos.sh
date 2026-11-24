@@ -30,6 +30,7 @@ done
 lipo -create "$work/Gravity-arm64" "$work/Gravity-x86_64" -output "$app/Contents/MacOS/Gravity"
 cp "$root/macos/Info.plist" "$app/Contents/Info.plist"
 cp "$root/LICENSE" "$app/Contents/Resources/LICENSE"
+cp "$root/THIRD_PARTY_NOTICES.md" "$app/Contents/Resources/THIRD_PARTY_NOTICES.md"
 icons="$work/Gravity.iconset"
 mkdir -p "$icons"
 for size in 16 32 128 256 512; do

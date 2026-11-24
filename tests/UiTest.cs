@@ -45,6 +45,10 @@ namespace Gravity.Tests
 
         private static bool Key(Keys k)
         {
+            // Press keys from the document, as a user would; the off-screen window's focus
+            // can otherwise rest in a toolbar box, where letter keys are (correctly) typed.
+            if ((bool)form.GetType().GetProperty("TextFocused", F).GetValue(form) || Field<TreeView>(form, "toc").Focused)
+                Call(form, "FocusCanvas");
             bool handled = (bool)Call(form, "HandleKey", k);
             Pump(30);
             return handled;

@@ -1717,7 +1717,8 @@ namespace Gravity
         {
             string ver = typeof(MainForm).Assembly.GetName().Version.ToString(3);
             MessageBox.Show(this,
-                "Gravity " + ver + "\n\nA fast, lightweight PDF viewer and page organizer for Windows.\n\n" +
+                "Gravity " + ver + "\n\nA fast, lightweight PDF viewer and page organizer for Windows.\n" +
+                "Released under the MIT License.\n\n" +
                 "PDF rendering by PDFium (BSD-3-Clause / Apache-2.0).\nSee the licenses folder next to Gravity.exe.",
                 "About Gravity", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }

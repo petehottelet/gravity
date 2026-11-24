@@ -9,6 +9,7 @@
 
 <p align="center">
   <img alt="Version 1.0.0" src="https://img.shields.io/badge/version-1.0.0-2ea44f.svg">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-2ea44f.svg"></a>
   <img alt="Windows 10 | 11" src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0B57D0.svg">
   <img alt=".NET Framework 4.8" src="https://img.shields.io/badge/.NET%20Framework-4.8-512BD4.svg">
   <img alt="Engine: PDFium" src="https://img.shields.io/badge/engine-PDFium-555.svg">
@@ -186,6 +187,16 @@ Saving builds the real PDF with PDFium in four steps:
 - Printing sends each page as an image at up to 300 DPI, scaled to fit the paper.
 - Startup time depends on how many fonts are installed. GDI+ (used by all WinForms apps) scans the installed fonts once per process. With about 2,800 font families, that scan alone takes about 0.65 s and the window appears in about 0.8 s. Gravity overlaps the scan with loading the document. Machines with a typical font set start noticeably faster.
 
-## Third-party software
+## License
 
-PDFium (BSD-3-Clause / Apache-2.0), prebuilt by [bblanchon/pdfium-binaries](https://github.com/bblanchon/pdfium-binaries) (MIT), build chromium/8179. License texts are in `third_party/pdfium/` and are copied to `bin/licenses/` on build.
+Gravity is released under the [MIT License](LICENSE).
+
+### Third-party software
+
+Gravity bundles software under its own licenses:
+- PDFium (BSD-3-Clause / Apache-2.0)
+- its prebuilt binary from [bblanchon/pdfium-binaries](https://github.com/bblanchon/pdfium-binaries) (MIT), build chromium/8179
+
+Their license texts are in `third_party/pdfium/`. The build copies them to `bin/licenses/` along with Gravity's own license.
+
+The wordmark in the logo images is set in ONRAMP by Lost Type, which has its own license. The font file isn't part of this repository.

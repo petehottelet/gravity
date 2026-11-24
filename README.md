@@ -5,27 +5,15 @@
   </picture>
 </p>
 
-<h1 align="center">Gravity</h1>
-
 <p align="center">A lightweight PDF viewer, form filler, and page organizer for Windows and macOS.</p>
 
 <p align="center">
-  <img alt="Version 1.0.0" src="https://img.shields.io/badge/version-1.0.0-2ea44f.svg">
-  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-2ea44f.svg"></a>
-  <img alt="Windows 10 | 11" src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0B57D0.svg">
-  <img alt=".NET Framework 4.8" src="https://img.shields.io/badge/.NET%20Framework-4.8-512BD4.svg">
-  <a href="#macos"><img alt="macOS 12+: source build" src="https://img.shields.io/badge/macOS-12%2B%20source%20build-555.svg"></a>
-  <img alt="Swift and PDFKit" src="https://img.shields.io/badge/Mac-Swift%20%2B%20PDFKit-F05138.svg">
-  <img alt="Windows: portable" src="https://img.shields.io/badge/Windows-portable-555.svg">
-  <img alt="Mac: Apple Silicon and Intel" src="https://img.shields.io/badge/Mac-Apple%20Silicon%20%2B%20Intel-555.svg">
-  <br>
-  <img alt="Input: .pdf" src="https://img.shields.io/badge/input-.pdf-777777.svg">
-  <img alt="Pages: reorder, combine, cut and paste, rotate" src="https://img.shields.io/badge/pages-reorder%20%7C%20combine%20%7C%20cut%20%26%20paste%20%7C%20rotate-6f42c1.svg">
-  <a href="#form-filling"><img alt="Forms: fill, save, undo" src="https://img.shields.io/badge/forms-fill%20%7C%20save%20%7C%20undo-2ea44f.svg"></a>
-  <a href="#building"><img alt="Tests: offline" src="https://img.shields.io/badge/tests-offline-555.svg"></a>
+  <a href="#windows">Windows 10 / 11</a> &nbsp;·&nbsp;
+  <a href="#macos">macOS 12+</a> &nbsp;·&nbsp;
+  <a href="LICENSE">MIT License</a>
 </p>
 
-A lightweight PDF viewer with basic page editing, allowing you to rearrange, combine, cut, copy and paste pages between PDFs, and fill existing form fields. The Windows app uses the bundled PDF engine; the native macOS app uses Apple's PDFKit.
+Read PDFs, fill existing form fields, and rearrange, combine, cut, copy and paste pages between documents. The Windows app uses the bundled PDF engine; the native macOS app uses Apple's PDFKit.
 
 - Windows: a small executable plus `pdfium.dll`, running on .NET Framework 4.8. No installer required.
 - Windows rendering happens in tiles on a background thread, so scrolling and zooming never wait on the page.

@@ -9,47 +9,24 @@ namespace Gravity
 {
     internal static class Theme
     {
-        public static readonly Color ViewBack = Color.FromArgb(0xE3, 0xE4, 0xE6);
-        public static readonly Color Chrome = Color.FromArgb(0xF7, 0xF7, 0xF8);
-        public static readonly Color ChromeBorder = Color.FromArgb(0xDA, 0xDB, 0xDE);
+        public static readonly Color ViewBack = Color.FromArgb(0xE8, 0xEB, 0xEF);
+        public static readonly Color Chrome = Color.FromArgb(0xF7, 0xF8, 0xFA);
+        public static readonly Color ChromeBorder = Color.FromArgb(0xCD, 0xD3, 0xDB);
         public static readonly Color TabActive = Color.White;
-        public static readonly Color Text = Color.FromArgb(0x1F, 0x1F, 0x22);
-        public static readonly Color SubtleText = Color.FromArgb(0x6B, 0x6E, 0x76);
-        public static readonly Color Accent = Color.FromArgb(0x0B, 0x57, 0xD0);       // brand blue
+        public static readonly Color Text = Color.FromArgb(0x22, 0x28, 0x31);
+        public static readonly Color SubtleText = Color.FromArgb(0x41, 0x4B, 0x57);
+        public static readonly Color Accent = Color.FromArgb(0x17, 0x4B, 0x8B);
         public static readonly Color AccentHot = Color.FromArgb(0x08, 0x47, 0xAE);
-        public static readonly Color AccentSoft = Color.FromArgb(0xD8, 0xE5, 0xFB);
+        public static readonly Color AccentSoft = Color.FromArgb(0xE2, 0xEC, 0xF8);
         public static readonly Color PageBorder = Color.FromArgb(0xC4, 0xC6, 0xCA);
         public static readonly Color Selection = Color.FromArgb(80, 0x1A, 0x73, 0xE8);
         public static readonly Color SearchHit = Color.FromArgb(120, 0xFF, 0xB0, 0x00);
         public static readonly Color Modified = Color.FromArgb(0xD9, 0x6C, 0x00);
 
-        private static string iconFont;
-        public static string IconFontName
-        {
-            get
-            {
-                if (iconFont != null) return iconFont;
-                // Probe directly: enumerating every installed font is slow on machines with many fonts.
-                using (var probe = new Font("Segoe Fluent Icons", 10f))
-                    iconFont = probe.Name == "Segoe Fluent Icons" ? probe.Name : "Segoe MDL2 Assets";
-                return iconFont;
-            }
-        }
-
-        /// <summary>Draws an icon-font glyph into a bitmap so ToolStrip items stay crisp at any DPI.</summary>
+        /// <summary>Draws the matching bundled Lucide vector at the requested display size.</summary>
         public static Bitmap Glyph(string glyph, int px, Color color, string fontName = null, bool mirror = false)
         {
-            var bmp = new Bitmap(px, px);
-            using (var g = Graphics.FromImage(bmp))
-            using (var font = new Font(fontName ?? IconFontName, px * 0.75f, FontStyle.Regular, GraphicsUnit.Pixel))
-            using (var brush = new SolidBrush(color))
-            using (var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
-            {
-                g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
-                g.DrawString(glyph, font, brush, new RectangleF(0, 0, px, px + 1), sf);
-            }
-            if (mirror) bmp.RotateFlip(RotateFlipType.RotateNoneFlipX);
-            return bmp;
+            return LucideIcons.Create(LucideIcons.FromGlyph(glyph, mirror), px, color);
         }
 
         public static GraphicsPath RoundRect(RectangleF r, float radius)

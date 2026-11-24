@@ -97,9 +97,8 @@ namespace Gravity
                                 g.DrawLine(sep, r.X + S(14), r.Y, r.Right - S(14), r.Y);
                         bool exists = File.Exists(item.Path);
                         string name = Path.GetFileName(item.Path), dir = Path.GetDirectoryName(item.Path);
-                        using (var f = new Font(Theme.IconFontName, 12f))
-                            TextRenderer.DrawText(g, "", f, new Rectangle(r.X + S(10), r.Y, S(28), r.Height), exists ? Theme.Accent : Theme.SubtleText,
-                                TextFormatFlags.VerticalCenter | TextFormatFlags.HorizontalCenter);
+                        LucideIcons.Draw(g, "book-open", new Rectangle(r.X + S(14), r.Y + (r.Height - S(20)) / 2, S(20), S(20)),
+                            exists ? Theme.Accent : Theme.SubtleText);
                         var tr = new Rectangle(r.X + S(44), r.Y + S(5), r.Width - S(56), S(20));
                         TextRenderer.DrawText(g, name, itemFont, tr, exists ? Theme.Text : Theme.SubtleText, TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix | TextFormatFlags.Left);
                         var dr = new Rectangle(r.X + S(44), r.Y + S(25), r.Width - S(56), S(16));

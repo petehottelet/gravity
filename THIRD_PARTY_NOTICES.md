@@ -41,9 +41,11 @@ This software is based in part on the work of the Independent JPEG Group.
 
 The upstream ICU notice also contains terms for build-support scripts and an Autoconf exception. Those notices are retained unchanged; the build-support scripts are not distributed as part of Gravity's application.
 
-## Optional UI prototype icons
+## Lucide icons
 
-The browser prototype in `docs/ui-draft/` includes 32 Lucide SVG definitions from `lucide-static` 1.79.0. Their ISC license and the applicable Feather MIT notices are retained in [docs/ui-draft/vendor/LICENSE](docs/ui-draft/vendor/LICENSE). These prototype assets are not included in the native application packages.
+The Windows application embeds 32 Lucide SVG definitions from `lucide-static` 1.79.0 and renders them locally with GDI+. The original assets, version information, ISC license, and applicable Feather MIT notices are retained in `third_party/lucide/`. The Windows build includes the complete notices as `licenses/Lucide.txt`.
+
+The browser prototype in `docs/ui-draft/` uses the same icon set, with its license retained in [docs/ui-draft/vendor/LICENSE](docs/ui-draft/vendor/LICENSE). The macOS application does not bundle these icons.
 
 ## System libraries and development tools
 

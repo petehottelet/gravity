@@ -7,7 +7,7 @@ using System.Windows.Forms;
 namespace Gravity
 {
     /// <summary>A lightweight owner-drawn tab bar.</summary>
-    internal sealed class TabStrip : Control
+    internal sealed partial class TabStrip : Control
     {
         internal sealed class Tab
         {
@@ -34,6 +34,8 @@ namespace Gravity
             Height = S(34);
             BackColor = Theme.Chrome;
             Font = new Font("Segoe UI", 9f);
+            TabStop = true;
+            AccessibleName = "Documents";
         }
 
         private int S(float v) { return (int)Math.Round(v * dpi / 96f); }
@@ -41,7 +43,13 @@ namespace Gravity
         public int SelectedIndex
         {
             get { return selected; }
-            set { selected = value; Invalidate(); }
+            set
+            {
+                if (selected == value) { Invalidate(); return; }
+                selected = value; Invalidate();
+                AccessibilityNotifyClients(AccessibleEvents.SelectionWithin, -1);
+                if (Focused && selected >= 0) AccessibilityNotifyClients(AccessibleEvents.Focus, selected);
+            }
         }
 
         private int TabWidth
@@ -108,6 +116,7 @@ namespace Gravity
                         g.DrawLine(pen, r.Right - 1, r.Y + S(8), r.Right - 1, r.Bottom - S(8));
                 }
                 var t = Tabs[i];
+                if (sel && Focused) ControlPaint.DrawFocusRectangle(g, Rectangle.Inflate(r, -S(4), -S(4)), Theme.Accent, Theme.Chrome);
                 int textLeft = r.X + S(12);
                 if (t.Modified)
                 {
@@ -125,16 +134,14 @@ namespace Gravity
                     if (i == hover && hoverClose)
                         using (var b = new SolidBrush(Color.FromArgb(0xDD, 0xDE, 0xE1)))
                             g.FillEllipse(b, cr);
-                    using (var f = new Font(Theme.IconFontName, 7f))
-                        TextRenderer.DrawText(g, "", f, cr, Theme.SubtleText, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                    LucideIcons.Draw(g, "x", Rectangle.Inflate(cr, -S(2), -S(2)), Theme.SubtleText);
                 }
             }
             var ar = AddRect;
             if (hoverAdd)
                 using (var b = new SolidBrush(Color.FromArgb(0xE3, 0xE4, 0xE7)))
                     g.FillEllipse(b, ar);
-            using (var f = new Font(Theme.IconFontName, 9f))
-                TextRenderer.DrawText(g, "", f, ar, Theme.SubtleText, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+            LucideIcons.Draw(g, "plus", Rectangle.Inflate(ar, -S(3), -S(3)), Theme.SubtleText);
         }
 
         protected override void OnMouseMove(MouseEventArgs e)
@@ -175,6 +182,7 @@ namespace Gravity
         protected override void OnMouseDown(MouseEventArgs e)
         {
             base.OnMouseDown(e);
+            Focus();
             if (AddRect.Contains(e.Location) && e.Button == MouseButtons.Left)
             {
                 var a = AddRequested;

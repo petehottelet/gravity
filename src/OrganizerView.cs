@@ -12,7 +12,7 @@ namespace Gravity
     /// Thumbnail grid for rearranging pages: multi-select, drag to reorder, drop PDF files to insert.
     /// It edits nothing itself; it raises requests that MainForm turns into undoable page operations.
     /// </summary>
-    internal sealed class OrganizerView : CanvasControl
+    internal sealed partial class OrganizerView : CanvasControl
     {
         public RenderService Renderer;
 
@@ -84,6 +84,7 @@ namespace Gravity
             DoLayout();
             if (focus >= 0) EnsureVisible(focus, true);
             RaiseSelection();
+            AccessibilityNotifyClients(AccessibleEvents.Reorder, -1);
         }
 
         /// <summary>The page list changed; keep selection by identity where possible.</summary>
@@ -144,6 +145,8 @@ namespace Gravity
 
         private void RaiseSelection()
         {
+            AccessibilityNotifyClients(AccessibleEvents.SelectionWithin, -1);
+            if (Focused && focus >= 0) AccessibilityNotifyClients(AccessibleEvents.Focus, focus);
             var h = SelectionChanged;
             if (h != null) h(this, EventArgs.Empty);
         }
@@ -279,17 +282,12 @@ namespace Gravity
                         }
                         g.SmoothingMode = SmoothingMode.None;
                     }
-                    else if (i == focus && Focused)
+                    if (i == focus && Focused)
                     {
-                        g.DrawRectangle(focusPen, inner);
+                        g.DrawRectangle(focusPen, Rectangle.Inflate(inner, -S(4), -S(4)));
                     }
                     var tr = ThumbRect(i, CellRect(i));
                     tr.Offset(0, -ScrollY);
-                    using (var shadow = new SolidBrush(Color.FromArgb(28, 0, 0, 0)))
-                    {
-                        g.FillRectangle(shadow, tr.X + 1, tr.Bottom + 1, tr.Width + 1, 2);
-                        g.FillRectangle(shadow, tr.Right + 1, tr.Y + 1, 2, tr.Height + 2);
-                    }
                     using (var border = new SolidBrush(Theme.PageBorder))
                         g.FillRectangle(border, tr.X - 1, tr.Y - 1, tr.Width + 2, tr.Height + 2);
                     g.FillRectangle(Brushes.White, tr);
@@ -304,7 +302,15 @@ namespace Gravity
                             DrawThumbFallback(g, p, tr);
                         }
                     }
-                    string label = (i + 1).ToString();
+                    if (sel && !SidebarMode)
+                    {
+                        var badge = new Rectangle(inner.Right - S(24), inner.Top + S(7), S(18), S(18));
+                        g.SmoothingMode = SmoothingMode.AntiAlias;
+                        using (var brush = new SolidBrush(Theme.Accent)) g.FillEllipse(brush, badge);
+                        LucideIcons.Draw(g, "check", Rectangle.Inflate(badge, -S(3), -S(3)), Color.White);
+                        g.SmoothingMode = SmoothingMode.None;
+                    }
+                    string label = "Page " + (i + 1);
                     var lr = new Rectangle(cell.X, tr.Bottom + S(4), cell.Width, LabelH - S(4));
                     TextRenderer.DrawText(g, label, labelFont, lr, sel ? Theme.Accent : Theme.Text,
                         TextFormatFlags.HorizontalCenter | TextFormatFlags.Top | TextFormatFlags.EndEllipsis);
@@ -623,7 +629,7 @@ namespace Gravity
             if (drag == DragKind.Band) UpdateBand();
         }
 
-        protected override void OnGotFocus(EventArgs e) { base.OnGotFocus(e); Invalidate(); }
+        protected override void OnGotFocus(EventArgs e) { base.OnGotFocus(e); Invalidate(); if (focus >= 0) AccessibilityNotifyClients(AccessibleEvents.Focus, focus); }
         protected override void OnLostFocus(EventArgs e) { base.OnLostFocus(e); Invalidate(); }
 
         // ---- keyboard ---------------------------------------------------------------

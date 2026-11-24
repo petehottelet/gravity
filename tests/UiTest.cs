@@ -153,12 +153,71 @@ namespace Gravity.Tests
                 Check(appIcon != null && appIcon.Width > 0, "embedded app icon loads");
             Check(Brand.Lockup != null && Brand.Lockup.Width > Brand.Lockup.Height * 3, "embedded logo lockup loads");
             Check(active() == tabs[2] && view.Visible && view.PageCount == 2, "last file is active in the reading view");
+            var readButton = Field<ToolStripButton>(form, "bRead");
+            var organizeButton = Field<ToolStripButton>(form, "bOrganize");
+            organizeButton.PerformClick(); organizeButton.PerformClick();
+            Check(active().Organize && organizeButton.Checked && !readButton.Checked,
+                "Organize segment stays selected when clicked again");
+            readButton.PerformClick(); readButton.PerformClick();
+            Check(!active().Organize && readButton.Checked && !organizeButton.Checked,
+                "Read segment restores the document and stays selected");
+            var modeTools = Field<ToolStrip>(form, "modeTools");
+            var commands = Field<ToolStrip>(form, "toolbar");
+            form.Size = form.MinimumSize; Pump(50);
+            Check(!modeTools.Bounds.IntersectsWith(commands.Bounds) && organizeButton.Bounds.Right <= modeTools.ClientSize.Width,
+                "both mode segments remain unobscured at minimum window size");
+            Check(Field<ToolStripButton>(form, "bOpen").Placement == ToolStripItemPlacement.Main &&
+                Field<ToolStripButton>(form, "bSave").Placement == ToolStripItemPlacement.Main,
+                "Open and Save remain directly available in a narrow window");
+            form.Size = new Size(1200, 860); Pump(50);
+            organizeButton.PerformClick();
+            Check(org.Top >= Field<ToolStrip>(form, "contextTools").Bottom && org.Bottom <= Field<StatusStrip>(form, "documentStatus").Top,
+                "organizer canvas leaves its action row and status visible");
+            var pagesAccess = org.AccessibilityObject;
+            Check(pagesAccess.Role == AccessibleRole.List && pagesAccess.GetChildCount() == 2 && pagesAccess.GetChild(1).Name == "Page 2",
+                "assistive technology can enumerate and name document pages");
+            pagesAccess.GetChild(1).DoDefaultAction();
+            pagesAccess.GetChild(0).Select(AccessibleSelection.AddSelection | AccessibleSelection.TakeFocus);
+            Check(org.SelectedIndices().SequenceEqual(new[] { 0, 1 }) &&
+                (pagesAccess.GetChild(0).State & (AccessibleStates.Selected | AccessibleStates.Focused)) == (AccessibleStates.Selected | AccessibleStates.Focused),
+                "accessible page actions expose multi-selection and the distinct focused page");
+            readButton.PerformClick();
+            var tabsAccess = Field<TabStrip>(form, "tabStrip").AccessibilityObject;
+            Check(tabsAccess.Role == AccessibleRole.PageTabList && tabsAccess.GetChildCount() == 4 &&
+                tabsAccess.GetChild(0).GetChild(0).DefaultAction == "Close document", "accessible document tabs expose activate, close and open actions");
+            tabsAccess.GetChild(0).DoDefaultAction(); tabsAccess.GetChild(2).DoDefaultAction();
+            Check(active() == tabs[2] && (tabsAccess.GetChild(2).State & AccessibleStates.Selected) != 0,
+                "accessible tab activation changes the actual document and selected state");
+            Call(form, "FocusCanvas");
+            var overflow = Field<ToolStripDropDownButton>(form, "contextMore");
+            Check(overflow.Width >= 70 && overflow.Height >= 40 && overflow.AccessibleName.Contains("More"),
+                "context overflow provides a named full-size More target");
+            foreach (int shellWidth in new[] { form.MinimumSize.Width, 640, 1200 })
+            {
+                form.Size = new Size(shellWidth, 860); Pump(30);
+                foreach (bool organize in new[] { false, true })
+                {
+                    Call(form, "SetOrganize", organize); Pump(30);
+                    Check(overflow.Visible && overflow.Placement == ToolStripItemPlacement.Main &&
+                        Field<ToolStrip>(form, "contextTools").ClientRectangle.Contains(overflow.Bounds),
+                        "More is visibly placed in " + (organize ? "Organize" : "Read") + " at width " + shellWidth);
+                    Call(form, "PopulateContextMenu");
+                    Check(overflow.DropDownItems.OfType<ToolStripMenuItem>().Any(item => item.Text.Contains(organize ? "uplicate" : "Fit")),
+                        "More exposes the current mode's commands");
+                }
+            }
+            readButton.PerformClick(); Call(form, "FocusCanvas");
 
             // ---- links and history
             Click(view, PdfToClient(view, 0, 100, 710));
             Check(view.CurrentPage == 1, "clicking an internal link jumps to its page");
+            var outline = Field<TreeView>(form, "toc");
+            Check(outline.SelectedNode != null && ((OutlineItem)outline.SelectedNode.Tag).PageIndex == 1,
+                "outline location follows internal-link navigation");
             Key(Keys.Alt | Keys.Left);
             Check(view.CurrentPage == 0, "Alt+Left goes back");
+            Check(outline.SelectedNode != null && ((OutlineItem)outline.SelectedNode.Tag).PageIndex == 0,
+                "outline location follows navigation history");
             Key(Keys.Alt | Keys.Right);
             Check(view.CurrentPage == 1, "Alt+Right goes forward");
 
@@ -345,6 +404,32 @@ namespace Gravity.Tests
             Pump(200);
             Check(form.IsDisposed, "window closes without prompting");
             PagePanelTests(dir);
+            ScreenshotTest(dir);
+        }
+
+        private static void ScreenshotTest(string dir)
+        {
+            using (var recentHome = new HomeView { Size = new Size(1000, 740) })
+            using (var image = new Bitmap(1000, 740))
+            {
+                recentHome.SetRecent(new List<RecentFile> { new RecentFile { Path = Path.Combine(dir, "A.pdf") } });
+                recentHome.DrawToBitmap(image, new Rectangle(Point.Empty, image.Size));
+                Check(true, "home view renders recent documents using bundled icons");
+            }
+            string capture = Path.Combine(dir, "window-only.png");
+            using (var snapshot = new MainForm(new[] { Path.Combine(dir, "A.pdf") }, true)
+            {
+                ShowInTaskbar = false, StartPosition = FormStartPosition.Manual, Bounds = new Rectangle(-4000, -4000, 1000, 740),
+                ScreenshotPath = capture,
+            })
+            {
+                snapshot.Show();
+                Check(PumpUntil(() => snapshot.IsDisposed, 18000) && File.Exists(capture),
+                    "offscreen capture finishes without reading other desktop windows");
+                using (var image = new Bitmap(capture))
+                    Check(image.Width == 1000 && image.Height == 740 && image.GetPixel(60, 70).ToArgb() == Theme.Chrome.ToArgb(),
+                        "window capture contains the app at the requested size even offscreen");
+            }
         }
 
         private static void PagePanelTests(string dir)
@@ -366,12 +451,16 @@ namespace Gravity.Tests
             var doc = tabs[0].Doc;
             string original = Texts(doc);
             int count = doc.Pages.Count;
+            var sidebar = Field<Panel>(form, "sidebar");
+            Check(sidebar.Visible && !panel.Visible && Field<ToolStripButton>(form, "bOutline").Checked,
+                "reader starts with the outline tab in the shared sidebar");
+            Field<ToolStripButton>(form, "bPages").PerformClick();
             Check(panel.Visible && view.Visible && org.Visible && org.SidebarMode, "pages panel opens alongside the reader");
             int openWidth = view.Width;
             Key(Keys.Control | Keys.Shift | Keys.E);
-            Check(!panel.Visible && rail.Visible && view.Width > openWidth, "collapsing pages returns space to the reader");
+            Check(!panel.Visible && !sidebar.Visible && view.Width > openWidth, "collapsing pages returns space to the reader");
             Key(Keys.Control | Keys.Tab);
-            Check(!panel.Visible && rail.Visible, "collapsed state survives tab switching");
+            Check(!panel.Visible && !sidebar.Visible, "collapsed state survives tab switching");
             Key(Keys.Alt | Keys.D1);
             Key(Keys.Control | Keys.Shift | Keys.E);
             Check(panel.Visible && !rail.Visible && view.Width == openWidth, "pages panel expands again");
@@ -462,12 +551,13 @@ namespace Gravity.Tests
             CapturePanel("pages-expanded");
             form.Size = form.MinimumSize;
             Pump(100);
-            Check(view.Width > 0 && panel.Right <= panel.Parent.ClientSize.Width && panel.Left >= view.Parent.Right,
+            Check(view.Width > 0 && panel.Right <= sidebar.ClientSize.Width && sidebar.Right <= view.Parent.Left,
                 "pages panel and reader fit at minimum window size");
             CapturePanel("pages-narrow");
             Key(Keys.Control | Keys.Shift | Keys.E);
             CapturePanel("pages-collapsed");
-            Check(!Field<AppSettings>(form, "settings").ShowPages, "collapse updates the saved panel preference");
+            Check(!Field<AppSettings>(form, "settings").ShowBookmarks && Field<AppSettings>(form, "settings").ShowPages,
+                "collapse remembers the last sidebar tab while saving its hidden state");
             Check(tabs.All(t => !t.Doc.IsModified), "all sidebar test edits were undone");
             while (tabs.Count > 0) Key(Keys.Control | Keys.W);
             Check(!panel.Visible && !rail.Visible && !view.Visible && Field<HomeView>(form, "home").Visible,

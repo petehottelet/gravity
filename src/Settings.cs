@@ -22,8 +22,8 @@ namespace Gravity
 
         public List<RecentFile> Recent = new List<RecentFile>();
         public bool ShowBookmarks = true;
-        public int SidebarWidth = 260;
-        public bool ShowPages = true;
+        public int SidebarWidth = 236;
+        public bool ShowPages;
         public int PagePanelWidth = 240;
         public Rectangle WindowBounds = Rectangle.Empty;
         public bool Maximized;

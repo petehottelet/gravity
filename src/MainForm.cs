@@ -20,7 +20,7 @@ namespace Gravity
         public int ReloadTries;
     }
 
-    internal sealed class MainForm : Form
+    internal sealed partial class MainForm : Form
     {
         private readonly AppSettings settings;
         private readonly RenderService renderer;
@@ -197,6 +197,7 @@ namespace Gravity
             Controls.Add(tabStrip);
             Controls.Add(menu);
             MainMenuStrip = menu;
+            BuildLucideShell();
             ResumeLayout(true);
 
             // events
@@ -333,7 +334,9 @@ namespace Gravity
         private void TogglePagePanel()
         {
             if (active == null || presentationMode) return;
-            settings.ShowPages = !settings.ShowPages;
+            bool wasVisible = pagePanel.Visible;
+            settings.ShowPages = true;
+            settings.ShowBookmarks = !wasVisible;
             if (Organizing) SetOrganize(false);
             pageSelectionActive = false;
             ShowMode();
@@ -346,7 +349,7 @@ namespace Gravity
         {
             var b = new ToolStripButton
             {
-                Image = Theme.Glyph(glyph, S(16), Theme.Text, font, mirror),
+                Image = Theme.Glyph(glyph, S(20), Theme.Text, font, mirror),
                 Text = text ?? tip,
                 ToolTipText = tip,
                 AutoToolTip = false,
@@ -375,8 +378,8 @@ namespace Gravity
             bPrint = Btn("", "Print (Ctrl+P)", Print);
             bUndo = Btn("", "Undo (Ctrl+Z)", Undo);
             bRedo = Btn("", "Redo (Ctrl+Y)", Redo);
-            bSidebar = Btn("", "Bookmarks (F12)", ToggleSidebar);
-            bOrganize = Btn("", "Organize pages: reorder, cut, copy, paste, rotate, insert (Ctrl+E)", ToggleOrganize, "Organize");
+            bSidebar = Btn("", "Show or hide sidebar (F12)", ToggleSidebar);
+            bOrganize = Btn("", "Organize pages: reorder, cut, copy, paste, rotate, insert (Ctrl+E)", () => SetOrganize(true), "Organize");
 
             bPrev = Btn("", "Previous page (P)", () => view.PrevPage());
             pageBox = new ToolStripTextBox { AutoSize = false, Width = S(46), TextBoxTextAlign = HorizontalAlignment.Center, BorderStyle = BorderStyle.FixedSingle, ToolTipText = "Go to page (Ctrl+G)" };
@@ -826,14 +829,14 @@ namespace Gravity
         {
             bool has = active != null, org = has && active.Organize;
             var parent = org ? host : pageBody;
-            if (organizer.Parent != parent) parent.Controls.Add(organizer);
+            if (organizer.Parent != parent) { parent.Controls.Add(organizer); parent.Controls.SetChildIndex(organizer, 0); }
             organizer.SidebarMode = !org;
             home.Visible = !has;
             if (!has || org) CloseFind();
             view.Visible = has && !org;
-            pagePanel.Visible = has && !org && !fullscreen && settings.ShowPages;
-            pageRail.Visible = has && !org && !fullscreen && !settings.ShowPages;
-            pageSplitter.Visible = pagePanel.Visible;
+            pagePanel.Visible = has && !org && !fullscreen && settings.ShowPages && settings.ShowBookmarks;
+            pageRail.Visible = false;
+            pageSplitter.Visible = false;
             organizer.Visible = org || pagePanel.Visible;
             ApplySidebar();
             // Drop queued renders for whichever view is now hidden.
@@ -1520,6 +1523,7 @@ namespace Gravity
 
         private void LoadToc()
         {
+            outlineVersion = -1;
             toc.BeginUpdate();
             toc.Nodes.Clear();
             tocBase = active != null ? active.Doc.Base : null;
@@ -1559,9 +1563,8 @@ namespace Gravity
         private void ToggleSidebar()
         {
             if (active == null) return;
-            if (!settings.ShowBookmarks && toc.Nodes.Count == 0) { Toast("This document has no bookmarks."); return; }
             settings.ShowBookmarks = !settings.ShowBookmarks;
-            ApplySidebar();
+            ShowMode();
             UpdateUI();
         }
 
@@ -1572,13 +1575,15 @@ namespace Gravity
             try
             {
                 int available = content.ClientSize.Width;
-                int desired = S(Math.Max(196, Math.Min(480, settings.PagePanelWidth)));
-                pagePanel.Width = Math.Min(desired, Math.Max(S(196), available - S(240)));
-                int right = pagePanel.Visible ? pagePanel.Width + pageSplitter.Width : pageRail.Visible ? pageRail.Width : 0;
-                bool show = settings.ShowBookmarks && active != null && toc.Nodes.Count > 0 && !fullscreen &&
-                    available - right - sidebar.Width >= S(240);
+                sidebar.Width = Math.Min(S(Math.Max(196, Math.Min(400, settings.SidebarWidth))), Math.Max(S(160), available - S(240)));
+                bool show = settings.ShowBookmarks && active != null && !fullscreen && available >= S(420);
                 sidebar.Visible = show;
                 splitter.Visible = show;
+                pagePanel.Visible = show && !Organizing && settings.ShowPages;
+                pageRail.Visible = pageSplitter.Visible = false;
+                toc.Visible = show && !pagePanel.Visible && toc.Nodes.Count > 0;
+                tocEmpty.Visible = show && !pagePanel.Visible && toc.Nodes.Count == 0;
+                organizer.Visible = Organizing || pagePanel.Visible;
             }
             finally { layingOutPanels = false; }
         }
@@ -1932,7 +1937,7 @@ namespace Gravity
                 pEarlier.Enabled = panelCount > 0 && panelIndices[0] > 0;
                 pLater.Enabled = panelCount > 0 && panelIndices[panelCount - 1] < n - 1;
                 miPagePanel.Enabled = has && !presentationMode;
-                miPagePanel.Checked = has && settings.ShowPages;
+                miPagePanel.Checked = has && pagePanel.Visible;
 
                 bSave.Enabled = has && n > 0 && (doc.IsModified || doc.FilePath == null);
                 bPrint.Enabled = has && n > 0;
@@ -1940,7 +1945,7 @@ namespace Gravity
                 bRedo.Enabled = has && doc.CanRedo;
                 bOrganize.Enabled = has && !presentationMode;
                 bOrganize.Checked = org;
-                bSidebar.Enabled = has && toc.Nodes.Count > 0;
+                bSidebar.Enabled = has;
                 bSidebar.Checked = sidebar.Visible;
                 bCut.Enabled = bDelete.Enabled = selCount > 0 && selCount < n;
                 bCopy.Enabled = bPRotL.Enabled = bPRotR.Enabled = bExtract.Enabled = selCount > 0;
@@ -2004,6 +2009,7 @@ namespace Gravity
                 miCopy.Text = pageTargets ? "&Copy Pages" : "&Copy Current Page";
                 miDelete.Text = pageTargets ? "&Delete Pages" : "&Delete Current Page";
                 miPaste.Text = pageTargets ? "&Paste Pages After Selection" : "&Paste Pages After Current Page";
+                UpdateLucideShell(has, org, n, selCount);
             }
             finally
             {
@@ -2097,6 +2103,7 @@ namespace Gravity
         private void BeginScreenshot()
         {
             if (ScreenshotOrganize && active != null) SetOrganize(true);
+            using (var preview = new Bitmap(Width, Height)) DrawToBitmap(preview, new Rectangle(Point.Empty, Size));
             var start = DateTime.UtcNow;
             var t = new Timer { Interval = 150 };
             t.Tick += delegate
@@ -2104,14 +2111,13 @@ namespace Gravity
                 if ((DateTime.UtcNow - start).TotalMilliseconds < 900) return;
                 if (!renderer.IsIdle && (DateTime.UtcNow - start).TotalSeconds < 15) return;
                 t.Stop();
-                TopMost = true;
-                Activate();
+                t.Dispose();
                 Refresh();
                 Application.DoEvents();
-                var r = RectangleToScreen(ClientRectangle);
-                using (var bmp = new Bitmap(r.Width, r.Height))
+                using (var bmp = new Bitmap(Width, Height))
                 {
-                    using (var g = Graphics.FromImage(bmp)) g.CopyFromScreen(r.Location, Point.Empty, r.Size);
+                    // Capture only this window, even when it is hidden or covered by another app.
+                    DrawToBitmap(bmp, new Rectangle(Point.Empty, Size));
                     bmp.Save(ScreenshotPath, System.Drawing.Imaging.ImageFormat.Png);
                 }
                 Close();
@@ -2172,9 +2178,9 @@ namespace Gravity
         public override Color OverflowButtonGradientEnd { get { return Color.White; } }
     }
 
-    internal sealed class FlatRenderer : ToolStripProfessionalRenderer
+    internal sealed class FlatRenderer : RoundedRenderer
     {
-        public FlatRenderer() : base(new FlatColors()) { RoundedEdges = false; }
+        public FlatRenderer() { RoundedEdges = true; }
 
         protected override void OnRenderToolStripBorder(ToolStripRenderEventArgs e)
         {

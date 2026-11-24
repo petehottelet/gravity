@@ -40,6 +40,7 @@ namespace Gravity.Tests
                 T("invalid files are rejected", NotAPdf),
                 T("form filling, saving, and undo", () => FormTests.Run(dir)),
                 T("distribution license notices", DistributionNotices),
+                T("bundled vector icons", IconTests.Run),
                 T("safe saves, search, exports, and image import", () => FeatureTests.Run(dir)),
             };
             foreach (var t in tests)
@@ -444,7 +445,7 @@ namespace Gravity.Tests
         {
             string licenses = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "licenses");
             var required = new[] {
-                "Gravity.txt", "pdfium-binaries.txt", "pdfium.txt", "abseil.txt", "agg23.txt",
+                "Gravity.txt", "Lucide.txt", "pdfium-binaries.txt", "pdfium.txt", "abseil.txt", "agg23.txt",
                 "dragonbox-Boost.txt", "dragonbox-Apache2-LLVM.txt", "fast_float.txt", "freetype.txt",
                 "harfbuzz.txt", "highway.txt", "icu.txt", "lcms.txt", "libjpeg_turbo.ijg",
                 "libjpeg_turbo.md", "libopenjpeg.txt", "libpng.txt", "llvm-libc.txt", "simdutf.txt", "zlib.txt"

@@ -33,9 +33,12 @@ foreach ($asset in 'Gravity.ico', 'GravityPdf.ico') {
 }
 if (-not (Test-Path (Join-Path $root 'src\Lockup.png'))) { throw 'src\Lockup.png is missing. Restore the finished logo artwork from the repository.' }
 $resources = @("/resource:$root\src\Gravity.ico,Gravity.ico", "/resource:$root\src\Lockup.png,Lockup.png")
+Get-ChildItem (Join-Path $root 'third_party\lucide\icons') -Filter *.svg | ForEach-Object {
+    $resources += "/resource:$($_.FullName),Lucide.$($_.Name)"
+}
 
 $sources = Get-ChildItem (Join-Path $root 'src') -Filter *.cs | ForEach-Object { $_.FullName }
-$refs = @('/r:System.dll', '/r:System.Core.dll', '/r:System.Drawing.dll', '/r:System.Windows.Forms.dll')
+$refs = @('/r:System.dll', '/r:System.Core.dll', '/r:System.Drawing.dll', '/r:System.Windows.Forms.dll', '/r:System.Xml.dll', '/r:Accessibility.dll')
 $common = @('/nologo', '/platform:x64', '/optimize+', '/langversion:5', '/warn:4', '/nowarn:1591') + $refs
 
 Write-Host 'Compiling Gravity.exe...'
@@ -49,6 +52,7 @@ New-Item -ItemType Directory -Force $lic | Out-Null
 Copy-Item (Join-Path $root 'third_party\pdfium\LICENSE') (Join-Path $lic 'pdfium-binaries.txt') -Force
 Copy-Item (Join-Path $root 'third_party\pdfium\licenses\*') $lic -Force
 Copy-Item (Join-Path $root 'LICENSE') (Join-Path $lic 'Gravity.txt') -Force
+Copy-Item (Join-Path $root 'third_party\lucide\LICENSE') (Join-Path $lic 'Lucide.txt') -Force
 Copy-Item (Join-Path $root 'THIRD_PARTY_NOTICES.md') $lic -Force
 
 $size = [Math]::Round(((Get-Item "$bin\Gravity.exe").Length / 1KB), 0)

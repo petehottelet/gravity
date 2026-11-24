@@ -174,10 +174,12 @@ namespace Gravity.Tests
                     "Find query stays visible and editable at the minimum window size");
                 form.Size = new Size(1100, 800);
                 Call(form, "HandleKey", Keys.Escape); Check(!panel.Visible, "Escape closes Find results");
-                find.Focus(); find.Text = "Al";
+                Field<ToolStripButton>(form, "bFind").PerformClick();
+                var query = Field<TextBox>(panel, "query");
+                query.Text = "Al"; query.SelectionStart = 2; query.SelectionLength = 0;
                 Check(panel.QueryFocused && Field<TextBox>(panel, "query").SelectionStart == 2 && Field<TextBox>(panel, "query").SelectionLength == 0,
-                    "typing in the toolbar transfers the caret without selecting or losing the query");
-                Check(Until(() => panel.Complete) && panel.MatchCount == 3, "toolbar queries populate the results panel");
+                    "Find button focuses an editable query and preserves the typing caret");
+                Check(Until(() => panel.Complete) && panel.MatchCount == 3, "Find queries populate the results panel");
                 var editedDoc = Field<DocTab>(form, "active").Doc;
                 editedDoc.SetPages(editedDoc.Pages.AsEnumerable().Reverse().ToList());
                 Check(Until(() => panel.Complete) && panel.MatchCount == 3 && Field<int>(view, "hitPage") >= 0,

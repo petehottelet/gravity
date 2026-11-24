@@ -57,7 +57,7 @@ namespace Gravity
                 }
 
                 Preload(args);
-                var form = new MainForm(args);
+                var form = new MainForm(args, args.Contains("--screenshot"));
                 int si = Array.IndexOf(args, "--screenshot");
                 if (si >= 0 && si + 1 < args.Length)
                 {

@@ -38,6 +38,8 @@ Read PDFs, fill existing form fields, and rearrange, combine, cut, copy and past
 
 The following reading and page-organizing controls describe the Windows app. macOS coverage is listed below.
 
+The Windows interface uses bundled Lucide icons, a **Read / Organize** switch, and a shared **Outline / Pages** sidebar. The top-right **…** button reveals the application menus; the command palette and keyboard shortcuts remain available. Primary controls use rounded targets, with page-specific commands above the document and save state below it.
+
 **Reading**
 - Continuous scrolling, or one page (or spread) at a time. Single, facing, and book (cover alone) layouts.
 - Fit page, fit width, actual size, and free zoom (Ctrl+wheel zooms around the mouse pointer).
@@ -54,7 +56,7 @@ The following reading and page-organizing controls describe the Windows app. mac
 - Printing.
 
 **Editing pages**
-- The collapsible **Pages** panel keeps thumbnails and page actions beside the reading view. Toggle it with Ctrl+Shift+E; its width and visibility are remembered.
+- The **Pages** tab keeps thumbnails and page actions in the left sidebar beside the reading view. Toggle it with Ctrl+Shift+E; the sidebar's width, visibility, and last tab are remembered.
 - Click a thumbnail to navigate, or select multiple thumbnails to edit pages while keeping the document visible. Press Ctrl+E or click **Organize** for the full thumbnail grid.
 - Thumbnail grid. Click, Ctrl+click, Shift+click, or drag a box to select pages.
 - Drag pages to reorder them. Dragging near the top or bottom edge scrolls.
@@ -109,7 +111,7 @@ JavaScript calculations, submission buttons, XFA forms, and digital signing are 
 | Single / facing / book | Ctrl+6, Ctrl+7, Ctrl+8 |
 | Continuous on/off | C |
 | Rotate view | [ and ] |
-| Bookmarks | F12 |
+| Show / hide sidebar | F12 |
 | Full screen / presentation | F11 / F5 or Ctrl+L |
 | Show / hide Pages panel | Ctrl+Shift+E |
 | Full page organizer | Ctrl+E |

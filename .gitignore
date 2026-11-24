@@ -1,0 +1,12 @@
+# Build output
+bin/
+obj/
+dist/
+*.tmp
+
+# Private and local files
+00_project_files/
+.env
+.env.*
+*.pem
+*.key

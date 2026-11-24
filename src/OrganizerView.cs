@@ -392,7 +392,7 @@ namespace Gravity
             curPt = e.Location;
             downIndex = i;
             deferredSelectOnly = false;
-            bool ctrl = (ModifierKeys & Keys.Control) != 0, shift = (ModifierKeys & Keys.Shift) != 0;
+            bool ctrl = (MouseModifiers & Keys.Control) != 0, shift = (MouseModifiers & Keys.Shift) != 0;
             if (e.Button == MouseButtons.Right)
             {
                 if (i >= 0 && !selected.Contains(pages[i])) SelectOnly(i);
@@ -578,7 +578,7 @@ namespace Gravity
 
         protected override void OnMouseWheel(MouseEventArgs e)
         {
-            if ((ModifierKeys & Keys.Control) != 0)
+            if ((MouseModifiers & Keys.Control) != 0)
             {
                 ThumbSize = (int)(thumb * (e.Delta > 0 ? 1.15 : 1 / 1.15));
                 return;

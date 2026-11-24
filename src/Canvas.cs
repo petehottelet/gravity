@@ -189,8 +189,19 @@ namespace Gravity
 
         public void ScrollBy(int dx, int dy) { ScrollTo(ScrollX + dx, ScrollY + dy); }
 
+        /// <summary>
+        /// Shift/Ctrl as recorded in the mouse message being handled. Unlike Control.ModifierKeys
+        /// (the keyboard's state right now), this is the state when the click or wheel happened.
+        /// </summary>
+        protected Keys MouseModifiers { get; private set; }
+
         protected override void WndProc(ref Message m)
         {
+            if ((m.Msg >= 0x200 && m.Msg <= 0x20A) || m.Msg == 0x20E)  // WM_MOUSEMOVE..WM_MOUSEWHEEL, WM_MOUSEHWHEEL
+            {
+                int flags = (int)((long)m.WParam & 0xFFFF);
+                MouseModifiers = ((flags & 0x4) != 0 ? Keys.Shift : Keys.None) | ((flags & 0x8) != 0 ? Keys.Control : Keys.None);
+            }
             if (m.Msg == WM_VSCROLL || m.Msg == WM_HSCROLL)
             {
                 bool vert = m.Msg == WM_VSCROLL;

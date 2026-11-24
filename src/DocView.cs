@@ -950,7 +950,7 @@ namespace Gravity
                         int ci = CharAt(idx, px, py, 3);
                         if (ci >= 0)
                         {
-                            if ((ModifierKeys & Keys.Shift) != 0 && selP0 >= 0) { selP1 = idx; selC1 = ci; }
+                            if ((MouseModifiers & Keys.Shift) != 0 && selP0 >= 0) { selP1 = idx; selC1 = ci; }
                             else { selP0 = selP1 = idx; selC0 = selC1 = ci; }
                             selRects.Clear();
                             drag = DragKind.Select;
@@ -1085,7 +1085,7 @@ namespace Gravity
 
         protected override void OnMouseWheel(MouseEventArgs e)
         {
-            if ((ModifierKeys & Keys.Control) != 0)
+            if ((MouseModifiers & Keys.Control) != 0)
             {
                 SetZoom(zoom * Math.Pow(1.12, e.Delta / 120.0), e.Location);
                 return;
@@ -1093,7 +1093,7 @@ namespace Gravity
             int lines = SystemInformation.MouseWheelScrollLines;
             if (lines <= 0) lines = 3;
             int delta = -(int)((long)e.Delta * lines * S(30) / 120);
-            if ((ModifierKeys & Keys.Shift) != 0) { ScrollBy(delta, 0); return; }
+            if ((MouseModifiers & Keys.Shift) != 0) { ScrollBy(delta, 0); return; }
             if (!continuous && pages.Count > 0)
             {
                 if (delta > 0 && ScrollY >= MaxScrollY) { ScrollScreen(1); return; }

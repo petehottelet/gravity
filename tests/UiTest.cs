@@ -74,13 +74,15 @@ namespace Gravity.Tests
 
         private static IntPtr LParam(Point p) { return (IntPtr)(((p.Y & 0xFFFF) << 16) | (p.X & 0xFFFF)); }
 
-        private static void Click(Control c, Point p)
+        private static void Click(Control c, Point p, int keyFlags = 0)
         {
-            SendMessage(c.Handle, WM_MOUSEMOVE, IntPtr.Zero, LParam(p));
-            SendMessage(c.Handle, WM_LBUTTONDOWN, (IntPtr)MK_LBUTTON, LParam(p));
-            SendMessage(c.Handle, WM_LBUTTONUP, IntPtr.Zero, LParam(p));
+            SendMessage(c.Handle, WM_MOUSEMOVE, (IntPtr)keyFlags, LParam(p));
+            SendMessage(c.Handle, WM_LBUTTONDOWN, (IntPtr)(MK_LBUTTON | keyFlags), LParam(p));
+            SendMessage(c.Handle, WM_LBUTTONUP, (IntPtr)keyFlags, LParam(p));
             Pump(30);
         }
+
+        private const int MK_SHIFT = 0x4, MK_CONTROL = 0x8;
 
         private static void Drag(Control c, Point from, Point to)
         {
@@ -219,6 +221,15 @@ namespace Gravity.Tests
             Drag(org, CellCenter(org, 0), new Point(c2.Right - 4, c2.Y + c2.Height / 2));
             Eq("A2 A3 A1 A4 A5", Texts(tabs[0].Doc), "dragging page 1 after page 3 reorders");
             Check(tabs[0].Doc.IsModified, "reordering marks the document modified");
+
+            // ---- modifier keys come from the mouse message, not the live keyboard state
+            Click(org, CellCenter(org, 0));
+            Click(org, CellCenter(org, 2), MK_SHIFT);
+            Check(org.SelectedIndices().SequenceEqual(new[] { 0, 1, 2 }), "Shift+click selects a range");
+            Click(org, CellCenter(org, 4), MK_CONTROL);
+            Check(org.SelectedIndices().SequenceEqual(new[] { 0, 1, 2, 4 }), "Ctrl+click adds a page to the selection");
+            Click(org, CellCenter(org, 1));
+            Check(org.SelectedIndices().SequenceEqual(new[] { 1 }), "a plain click selects one page");
 
             // ---- cut two pages, paste into another tab
             Click(org, CellCenter(org, 3));

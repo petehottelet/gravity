@@ -29,6 +29,13 @@ namespace Gravity
         private readonly HashSet<PageRef> selected = new HashSet<PageRef>(RefComparer<PageRef>.Instance);
         private int focus = -1, anchor = -1;
         private int thumb = 160;   // box size in 96-dpi pixels
+        private bool sidebarMode;
+
+        public bool SidebarMode
+        {
+            get { return sidebarMode; }
+            set { if (sidebarMode != value) { sidebarMode = value; DoLayout(); } }
+        }
 
         private int cols = 1, cellW, cellH, gridLeft, gridTop;
 
@@ -112,6 +119,13 @@ namespace Gravity
 
         public int FocusIndex { get { return focus; } }
 
+        public void SelectPage(int index)
+        {
+            if (index < 0 || index >= pages.Count) return;
+            if (focus != index || selected.Count != 1 || !selected.Contains(pages[index])) SelectOnly(index);
+            EnsureVisible(index);
+        }
+
         /// <summary>Where pasted pages go: after the last selected page, or at the end.</summary>
         public int InsertionPoint(bool before)
         {
@@ -138,7 +152,7 @@ namespace Gravity
 
         private int Pad { get { return S(10); } }
         private int LabelH { get { return S(24); } }
-        private int Box { get { return S(thumb); } }
+        private int Box { get { return sidebarMode ? Math.Max(S(48), Math.Min(S(thumb), ClientSize.Width - S(52))) : S(thumb); } }
 
         private void DoLayout()
         {
@@ -146,7 +160,7 @@ namespace Gravity
             int margin = S(16);
             cellW = Box + 2 * Pad;
             cellH = Box + LabelH + 2 * Pad;
-            cols = Math.Max(1, (cw - 2 * margin) / cellW);
+            cols = sidebarMode ? 1 : Math.Max(1, (cw - 2 * margin) / cellW);
             gridLeft = Math.Max(margin, (cw - cols * cellW) / 2);
             gridTop = margin;
             int rowsN = (pages.Count + cols - 1) / cols;
@@ -206,6 +220,8 @@ namespace Gravity
         {
             if (pages.Count == 0) return 0;
             int x = client.X, y = client.Y + ScrollY;
+            if (sidebarMode)
+                return Math.Max(0, Math.Min(pages.Count, (int)Math.Floor((y - gridTop + cellH / 2.0) / Math.Max(1, cellH))));
             int rowsN = (pages.Count + cols - 1) / cols;
             int row = Math.Max(0, Math.Min(rowsN - 1, (y - gridTop) / Math.Max(1, cellH)));
             int col = (int)Math.Round((x - gridLeft) / (double)cellW);
@@ -357,6 +373,13 @@ namespace Gravity
 
         private void DrawInsertBar(Graphics g, int idx)
         {
+            if (sidebarMode)
+            {
+                int y = gridTop + idx * cellH - ScrollY;
+                using (var b = new SolidBrush(Theme.Accent))
+                    g.FillRectangle(b, gridLeft, y - S(1), cellW, Math.Max(2, S(3)));
+                return;
+            }
             Rectangle cell;
             int x;
             if (pages.Count == 0) { x = gridLeft; cell = new Rectangle(gridLeft, gridTop, cellW, cellH); }

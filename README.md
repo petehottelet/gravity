@@ -5,32 +5,39 @@
   </picture>
 </p>
 
-# Gravity — a fast PDF viewer and page organizer
+<h1 align="center">Gravity</h1>
+
+<p align="center">A lightweight PDF viewer, form filler, and page organizer for Windows and macOS.</p>
 
 <p align="center">
   <img alt="Version 1.0.0" src="https://img.shields.io/badge/version-1.0.0-2ea44f.svg">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-2ea44f.svg"></a>
   <img alt="Windows 10 | 11" src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0B57D0.svg">
   <img alt=".NET Framework 4.8" src="https://img.shields.io/badge/.NET%20Framework-4.8-512BD4.svg">
-  <img alt="Engine: PDFium" src="https://img.shields.io/badge/engine-PDFium-555.svg">
-  <img alt="Portable, no install needed" src="https://img.shields.io/badge/portable-no%20install%20needed-555.svg">
+  <a href="#macos"><img alt="macOS 12+: source build" src="https://img.shields.io/badge/macOS-12%2B%20source%20build-555.svg"></a>
+  <img alt="Swift and PDFKit" src="https://img.shields.io/badge/Mac-Swift%20%2B%20PDFKit-F05138.svg">
+  <img alt="Windows: portable" src="https://img.shields.io/badge/Windows-portable-555.svg">
+  <img alt="Mac: Apple Silicon and Intel" src="https://img.shields.io/badge/Mac-Apple%20Silicon%20%2B%20Intel-555.svg">
   <br>
   <img alt="Input: .pdf" src="https://img.shields.io/badge/input-.pdf-777777.svg">
   <img alt="Pages: reorder, combine, cut and paste, rotate" src="https://img.shields.io/badge/pages-reorder%20%7C%20combine%20%7C%20cut%20%26%20paste%20%7C%20rotate-6f42c1.svg">
-  <img alt="Keyboard: SumatraPDF-style shortcuts" src="https://img.shields.io/badge/keyboard-SumatraPDF--style-0B57D0.svg">
+  <a href="#form-filling"><img alt="Forms: fill, save, undo" src="https://img.shields.io/badge/forms-fill%20%7C%20save%20%7C%20undo-2ea44f.svg"></a>
+  <a href="#building"><img alt="Tests: offline" src="https://img.shields.io/badge/tests-offline-555.svg"></a>
 </p>
 
-A lightweight PDF viewer for Windows, modeled on SumatraPDF's minimal reading experience, with the page editing Sumatra leaves out: rearrange, combine, cut, copy and paste pages between PDFs.
+A lightweight PDF viewer with basic page editing, allowing you to rearrange, combine, cut, copy and paste pages between PDFs, and fill existing form fields. The Windows app uses the bundled PDF engine; the native macOS app uses Apple's PDFKit.
 
-- One ~335 KB executable (about half of it icon artwork) plus `pdfium.dll` (Chrome's PDF engine). Nothing to install. It runs on the .NET Framework 4.8 that ships with Windows 10 and 11.
-- About 65 MB of memory with a couple of documents open.
-- Rendering happens in tiles on a background thread, so scrolling and zooming never wait on the page.
+- Windows: a small executable plus `pdfium.dll`, running on .NET Framework 4.8. No installer required.
+- Windows rendering happens in tiles on a background thread, so scrolling and zooming never wait on the page.
+- macOS: a native app for Apple Silicon and Intel, built with Xcode Command Line Tools. See [macOS](#macos) for coverage and build instructions.
 
 | Reading | Organizing pages |
 |---|---|
 | ![Reading view](docs/reading.png) | ![Organize view](docs/organize.png) |
 
 ## Features
+
+The following reading and page-organizing controls describe the Windows app. macOS coverage is listed below.
 
 **Reading**
 - Continuous scrolling, or one page (or spread) at a time. Single, facing, and book (cover alone) layouts.
@@ -46,7 +53,9 @@ A lightweight PDF viewer for Windows, modeled on SumatraPDF's minimal reading ex
 - Reloads automatically when the file changes on disk (unless it has unsaved edits).
 - Printing.
 
-**Editing pages** (press Ctrl+E or click **Organize**)
+**Editing pages**
+- The collapsible **Pages** panel keeps thumbnails and page actions beside the reading view. Toggle it with Ctrl+Shift+E; its width and visibility are remembered.
+- Click a thumbnail to navigate, or select multiple thumbnails to edit pages while keeping the document visible. Press Ctrl+E or click **Organize** for the full thumbnail grid.
 - Thumbnail grid. Click, Ctrl+click, Shift+click, or drag a box to select pages.
 - Drag pages to reorder them. Dragging near the top or bottom edge scrolls.
 - Cut, copy and paste pages, within one PDF or between tabs.
@@ -59,6 +68,14 @@ A lightweight PDF viewer for Windows, modeled on SumatraPDF's minimal reading ex
 
 Nothing is written until you save. Saving goes to a temporary file first and then replaces the original, so an interrupted save never leaves a damaged PDF. When the pages still come from the original file, Gravity edits that file's own page tree. This keeps its bookmarks, metadata and form fields. An unchanged document is saved byte-for-byte.
 
+### Form filling
+
+Click an existing field, or choose **Edit → Fill Form** (`Ctrl+Shift+F` on Windows, `Command+Shift+F` on macOS). Fill text, multiline text, checkboxes, radio buttons, and choice fields. Windows also supports lists with multiple selections.
+
+Apply changes, then **Save** or **Save As** to write them into the PDF. Form edits support undo/redo, and read-only fields stay read-only. Filled fields remain interactive when reopened. Scanned pages without interactive fields need OCR or a separate annotation editor.
+
+JavaScript calculations, submission buttons, XFA forms, and digital signing are not supported. Editing a signed PDF can invalidate its signature.
+
 ## Keyboard shortcuts
 
 | | |
@@ -69,6 +86,7 @@ Nothing is written until you save. Saving goes to a temporary file first and the
 | Go to page | Ctrl+G or G |
 | Back / forward | Alt+Left, Alt+Right |
 | Find | Ctrl+F or /, then F3 / Shift+F3 |
+| Fill form fields on this page | Ctrl+Shift+F, or click a field |
 | Zoom | + and -, Ctrl+wheel |
 | Fit page / actual size / fit width | Ctrl+0, Ctrl+1, Ctrl+2 |
 | Toggle fit page and fit width | Z |
@@ -77,11 +95,12 @@ Nothing is written until you save. Saving goes to a temporary file first and the
 | Rotate view | [ and ] |
 | Bookmarks | F12 |
 | Full screen / presentation | F11 / F5 or Ctrl+L |
-| Organize pages | Ctrl+E |
+| Show / hide Pages panel | Ctrl+Shift+E |
+| Full page organizer | Ctrl+E |
 | Cut / copy / paste pages | Ctrl+X, Ctrl+C, Ctrl+V (Ctrl+Shift+V pastes before) |
 | Delete / duplicate pages | Delete, Ctrl+D |
-| Rotate pages | Ctrl+[ and Ctrl+] (also [ and ] in Organize) |
-| Move pages earlier / later | Alt+Left, Alt+Right (Organize) |
+| Rotate pages | Ctrl+[ and Ctrl+] (also [ and ] with thumbnails focused) |
+| Move pages earlier / later | Alt+Up, Alt+Down (thumbnails focused) |
 | Undo / redo | Ctrl+Z, Ctrl+Y |
 | Open / save / save as / print | Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+P |
 | Next / previous tab, tab 1-9, close tab | Ctrl+Tab, Ctrl+Shift+Tab, Alt+1...9, Ctrl+W |
@@ -91,7 +110,23 @@ Press F1 in the app for the complete list.
 
 ## Using it
 
-The `bin` folder is the whole app. Copy `Gravity.exe`, `pdfium.dll` and the `licenses` folder anywhere and run it.
+Clone the source, then follow the build instructions for your platform:
+
+```sh
+git clone https://github.com/petehottelet/gravity.git
+cd gravity
+```
+
+### Windows
+
+On Windows 10 or 11 with .NET Framework 4.8, build and run from PowerShell:
+
+```powershell
+.\build.ps1
+.\bin\Gravity.exe
+```
+
+The `bin` folder is the whole app. Copy `Gravity.exe`, `pdfium.dll`, `GravityPdf.ico` and the `licenses` folder anywhere and run it.
 
 ### Install and make it the default PDF viewer
 
@@ -117,6 +152,29 @@ Settings and the recent-files list are stored in `%APPDATA%\Gravity\settings.txt
 
 Command line: `Gravity.exe [file.pdf ...] [-page N] [--new-window]`
 
+### macOS
+
+Build on a Mac running macOS 12 or newer with Xcode Command Line Tools installed:
+
+```sh
+bash build-macos.sh --test
+open bin/Gravity.app
+```
+
+This compiles `arm64` and `x86_64` into a universal app using system PDFKit. No PDF engine download, .NET, or third-party package is required. Copy `bin/Gravity.app` to Applications if desired. In Finder, use **Get Info → Open with → Gravity → Change All** to choose it as your PDF viewer.
+
+The native app includes document windows and macOS tabs, scrolling and zooming, text selection and search, a thumbnail sidebar with multiple selection, printing, and form filling. The **Pages** menu provides cut/copy/paste across documents, deletion, duplication, rotation, moving pages earlier/later, blank-page insertion, inserting PDFs, and extraction. Changes support undo/redo and standard save/close prompts.
+
+Use `Command+O/S/P` for open/save/print, `Command+Shift+S` for Save As, `Command+F` to find, and `Command+Shift+F` to fill forms. Page cut/copy/paste uses `Command+Shift+X/C/V`; ordinary `Command+C` copies selected text. Select pages with Command-click or Shift-click.
+
+The macOS implementation is new and still needs a build and runtime check on a Mac. It does not yet include Windows' bookmark sidebar, presentation mode, file watching, remembered reading positions, drag reordering, or form lists with multiple selections.
+
+```sh
+bash build-macos.sh --test --package
+```
+
+This writes `dist/Gravity-1.0.0-mac-universal.zip`. Local builds use an ad-hoc signature; they are not Developer ID signed or notarized for distribution.
+
 ## Building
 
 ```powershell
@@ -129,7 +187,7 @@ This uses the C# compiler included with Windows (`%WINDIR%\Microsoft.NET\Framewo
 .\build.ps1 -Test
 ```
 
-This builds and runs the offline test suite (124 checks).
+This builds and runs the offline engine and UI test suite.
 
 The engine tests generate their own PDFs, then check:
 - reordering, cutting and pasting across documents, and rotation
@@ -138,6 +196,7 @@ The engine tests generate their own PDFs, then check:
 - byte-identical unchanged saves
 - search, bookmarks and links
 - tiled rendering
+- form values, widget appearances, read-only fields, saving, and undo after saving
 - rejection of broken files
 
 The UI tests open the real window off-screen and drive it with Windows mouse and keyboard messages:
@@ -145,9 +204,17 @@ The UI tests open the real window off-screen and drive it with Windows mouse and
 - text selection
 - zoom and layout keys
 - drag-reordering in the organizer
+- collapsing and expanding the Pages panel, navigation, multi-page actions, and keyboard focus
 - cut in one tab and paste into another
 - save, and reload when the file changes on disk
 - presentation and full-screen modes
+- opening form fields from the keyboard and by clicking, applying values, and canceling
+
+The optional icon generator has a separate offline regression check, requiring Python and Pillow:
+
+```powershell
+python -m unittest discover -s tests -p "test_*.py"
+```
 
 ```powershell
 .\build.ps1 -Package
@@ -155,11 +222,13 @@ The UI tests open the real window off-screen and drive it with Windows mouse and
 
 This also writes a portable zip to `dist\`.
 
+`.github/workflows/checks.yml` builds and tests Windows and macOS. It has no release or upload step. The macOS build treats compiler warnings as errors and runs its PDFKit model and window-construction tests; Windows also runs `ruff check .` and the Python icon tests.
+
 ## How it's built
 
 | File | Role |
 |---|---|
-| `src/Pdfium.cs` | P/Invoke bindings for PDFium (render, text, search, bookmarks, links, page import/move/delete, save) |
+| `src/Pdfium.cs` | P/Invoke bindings for the PDF engine (render, text, search, bookmarks, links, page import/move/delete, save) |
 | `src/Model.cs` | `PdfSource` (a PDF loaded into memory, never modified), `PageRef` (one page plus rotation), and `EditDoc` (a tab's page list, undo, save) |
 | `src/Renderer.cs` | Background tile renderer with a memory-bounded LRU bitmap cache |
 | `src/DocView.cs` | Reading view: layout, zoom anchoring, tiles, selection, links, search |
@@ -167,13 +236,18 @@ This also writes a portable zip to `dist\`.
 | `src/MainForm.cs` | Window, menus, toolbar, tabs, page commands, save and print, file watching |
 | `src/TabStrip.cs`, `src/HomeView.cs`, `src/Dialogs.cs`, `src/Settings.cs`, `src/Canvas.cs` | Supporting UI |
 | `src/Program.cs` | Startup, single-instance handoff over a per-user named pipe |
+| `src/PdfForms.cs`, `src/FormEditor.cs` | AcroForm field access, editing controls, and widget rendering |
+| `macos/`, `build-macos.sh` | Native AppKit/PDFKit app, offline tests, and universal packaging |
 | `tests/` | Engine and UI self-tests |
-| `tools/make_brand.py`, `assets/` | Generates the app icon, the PDF document icon and the logos from the G mark (`assets/g-mark.png`). Needs Pillow and the ONRAMP font from Lost Type (licensed; the font file is never committed): `python tools/make_brand.py` |
+| `tools/make_brand.py`, `assets/` | Generates the app and PDF document icons from the G mark (`assets/g-mark.png`). Needs Python, Pillow and the Windows Segoe UI Bold font for the PDF label: `python tools/make_brand.py` |
+| `src/Lockup.png`, `docs/logo-light.png`, `docs/logo-dark.png` | Finished logo artwork used by the app and README; no logo generation or wordmark font is needed |
 | `tools/install.ps1` | Per-user install, PDF file association, Start menu shortcut |
 
 Edits never touch the loaded PDFs. A tab is a list of page references, possibly from several files, so cut, paste, reorder and undo are instant list operations.
 
-Saving builds the real PDF with PDFium in four steps:
+On Windows, applying form values creates an immutable document snapshot. The same history stores page edits and form edits, while the renderer draws widgets over page content. On macOS, PDFKit handles rendering and serialization, and AppKit handles document windows and safe saving.
+
+Saving builds the real PDF with the bundled engine in four steps:
 1. Load a fresh copy of the original file.
 2. Delete the pages that are no longer used.
 3. Import pages from other files with `FPDF_ImportPagesByIndex`.
@@ -181,22 +255,12 @@ Saving builds the real PDF with PDFium in four steps:
 
 ## Limitations
 
-- Opens PDF only. SumatraPDF's other formats (ePub, CBZ, DjVu and so on) aren't supported.
-- No annotation editing, form filling, or OCR.
+- Opens PDFs only for now.
+- No annotation editing or OCR. Form filling is limited to existing AcroForm fields.
 - Pages pasted in from *other* files don't bring those files' bookmarks along. The original document's bookmarks are kept.
 - Printing sends each page as an image at up to 300 DPI, scaled to fit the paper.
 - Startup time depends on how many fonts are installed. GDI+ (used by all WinForms apps) scans the installed fonts once per process. With about 2,800 font families, that scan alone takes about 0.65 s and the window appears in about 0.8 s. Gravity overlaps the scan with loading the document. Machines with a typical font set start noticeably faster.
 
-## License
+## Third-party software
 
-Gravity is released under the [MIT License](LICENSE).
-
-### Third-party software
-
-Gravity bundles software under its own licenses:
-- PDFium (BSD-3-Clause / Apache-2.0)
-- its prebuilt binary from [bblanchon/pdfium-binaries](https://github.com/bblanchon/pdfium-binaries) (MIT), build chromium/8179
-
-Their license texts are in `third_party/pdfium/`. The build copies them to `bin/licenses/` along with Gravity's own license.
-
-The wordmark in the logo images is set in ONRAMP by Lost Type, which has its own license. The font file isn't part of this repository.
+The bundled PDF engine and its components retain their own licenses. Their license texts are in `third_party/pdfium/` and are copied to `bin/licenses/` on build.

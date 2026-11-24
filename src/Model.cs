@@ -67,6 +67,15 @@ namespace Gravity
         private readonly Dictionary<int, IntPtr> textPages = new Dictionary<int, IntPtr>();
         private readonly LinkedList<int> textLru = new LinkedList<int>();
         private List<OutlineItem> outline;
+        private readonly Dictionary<int, List<PdfFormField>> formFields = new Dictionary<int, List<PdfFormField>>();
+
+        public List<PdfFormField> GetFormFields(int index)
+        {
+            List<PdfFormField> fields;
+            if (!formFields.TryGetValue(index, out fields))
+                using (var forms = new PdfForms(Doc)) formFields[index] = fields = forms.Read(index);
+            return fields;
+        }
 
         private PdfSource() { }
 
@@ -168,6 +177,18 @@ namespace Gravity
             IntPtr d = Pdfium.FPDF_LoadMemDocument64(buffer, new UIntPtr((ulong)length), passwordBytes);
             if (d == IntPtr.Zero) throw new IOException(Pdfium.ErrorText(Pdfium.FPDF_GetLastError()));
             return d;
+        }
+
+        public static PdfSource FromBytes(byte[] bytes, string password)
+        {
+            Pdfium.EnsureInitialized();
+            IntPtr buf = Marshal.AllocHGlobal(bytes.Length);
+            try
+            {
+                Marshal.Copy(bytes, 0, buf, bytes.Length);
+                return FromBuffer(buf, bytes.Length, password);
+            }
+            catch { Marshal.FreeHGlobal(buf); throw; }
         }
 
         public void WriteOriginalBytes(Stream s)
@@ -526,11 +547,16 @@ namespace Gravity
 
         public bool IsPristineCopyOfBase()
         {
-            if (Base == null || Pages.Count != Base.PageCount) return false;
+            return IsPristineCopy(Base);
+        }
+
+        private bool IsPristineCopy(PdfSource source)
+        {
+            if (source == null || Pages.Count != source.PageCount) return false;
             for (int i = 0; i < Pages.Count; i++)
             {
                 var p = Pages[i];
-                if (p.Src != Base || p.Index != i || p.Rotation != 0) return false;
+                if (p.Src != source || p.Index != i || p.Rotation != 0) return false;
             }
             return true;
         }
@@ -541,15 +567,18 @@ namespace Gravity
             if (Pages.Count == 0) throw new InvalidOperationException("A PDF needs at least one page.");
             lock (Pdfium.Lock)
             {
-                if (IsPristineCopyOfBase())
+                // Form edits create immutable full-document snapshots. Use that
+                // snapshot's catalog when no pages still refer to the saved base.
+                var basis = Base != null && Pages.Any(p => p.Src == Base) ? Base : Pages.Select(p => p.Src).FirstOrDefault(s => s != null);
+                if (IsPristineCopy(basis))
                 {
-                    Base.WriteOriginalBytes(output);
+                    basis.WriteOriginalBytes(output);
                     return;
                 }
                 foreach (var p in Pages)
                     if (p.Src != null && p.Src.IsDisposed) throw new InvalidOperationException("A source document was closed.");
 
-                IntPtr doc = Base != null ? Base.LoadCopy() : Pdfium.FPDF_CreateNewDocument();
+                IntPtr doc = basis != null ? basis.LoadCopy() : Pdfium.FPDF_CreateNewDocument();
                 if (doc == IntPtr.Zero) throw new IOException("Could not create a document.");
                 try
                 {
@@ -560,15 +589,15 @@ namespace Gravity
 
                     // 1. Keep the base document's own pages in place (this preserves its
                     //    outline, metadata and forms), deleting the ones no longer used.
-                    if (Base != null)
+                    if (basis != null)
                     {
-                        int n = Base.PageCount;
+                        int n = basis.PageCount;
                         var keeper = new int[n];
                         for (int i = 0; i < n; i++) keeper[i] = -1;
                         for (int k = 0; k < m; k++)
                         {
                             var p = Pages[k];
-                            if (p.Src == Base && keeper[p.Index] < 0) keeper[p.Index] = k;
+                            if (p.Src == basis && keeper[p.Index] < 0) keeper[p.Index] = k;
                         }
                         for (int i = n - 1; i >= 0; i--)
                             if (keeper[i] < 0) Pdfium.FPDFPage_Delete(doc, i);
@@ -632,6 +661,39 @@ namespace Gravity
                 {
                     Pdfium.FPDF_CloseDocument(doc);
                 }
+            }
+        }
+
+        /// <summary>Applies form values to an independent snapshot, as one undoable edit.</summary>
+        public void FillForm(int pageIndex, IList<PdfFormEdit> edits)
+        {
+            if (edits.Count == 0) return;
+            if (pageIndex < 0 || pageIndex >= Pages.Count) throw new ArgumentOutOfRangeException("pageIndex");
+            lock (Pdfium.Lock)
+            {
+                string password = Base != null ? Base.Password : null;
+                PdfSource working;
+                using (var bytes = new MemoryStream())
+                {
+                    WritePdf(bytes);
+                    working = PdfSource.FromBytes(bytes.ToArray(), password);
+                }
+                try
+                {
+                    using (var forms = new PdfForms(working.Doc))
+                    {
+                        // Load every page so shared fields get refreshed appearances.
+                        for (int i = 0; i < working.PageCount; i++) forms.Page(i);
+                        foreach (var edit in edits) forms.Apply(pageIndex, edit);
+                    }
+                    using (var bytes = new MemoryStream())
+                    {
+                        Pdfium.SaveDocument(working.Doc, bytes);
+                        var fresh = PdfSource.FromBytes(bytes.ToArray(), password);
+                        SetPages(AllPages(fresh));
+                    }
+                }
+                finally { working.Dispose(); }
             }
         }
 

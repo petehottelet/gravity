@@ -14,3 +14,11 @@ dist/
 # Python bytecode
 __pycache__/
 *.pyc
+
+# macOS and local tool caches
+.DS_Store
+.build/
+.swiftpm/
+.ruff_cache/
+.pytest_cache/
+.venv/

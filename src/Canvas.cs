@@ -301,9 +301,12 @@ namespace Gravity
             if (string.IsNullOrEmpty(toast)) return;
             using (var font = new Font("Segoe UI", 10f))
             {
-                var size = g.MeasureString(toast, font);
-                float pad = S(12), h = size.Height + S(12);
-                var r = new RectangleF((ClientSize.Width - size.Width) / 2 - pad, ClientSize.Height - h - S(28), size.Width + pad * 2, h);
+                float pad = S(12);
+                float textWidth = Math.Max(1, ClientSize.Width - S(16) - pad * 2);
+                var size = g.MeasureString(toast, font, new SizeF(textWidth, 10000));
+                float h = size.Height + S(12);
+                var r = new RectangleF((ClientSize.Width - size.Width) / 2 - pad,
+                    Math.Max(S(8), ClientSize.Height - h - S(28)), size.Width + pad * 2, h);
                 var oldMode = g.SmoothingMode;
                 g.SmoothingMode = SmoothingMode.AntiAlias;
                 using (var path = Theme.RoundRect(r, h / 2))
@@ -312,7 +315,7 @@ namespace Gravity
                 g.SmoothingMode = oldMode;
                 g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
                 using (var fg = new SolidBrush(Color.White))
-                    g.DrawString(toast, font, fg, r.X + pad, r.Y + (h - size.Height) / 2);
+                    g.DrawString(toast, font, fg, new RectangleF(r.X + pad, r.Y + (h - size.Height) / 2, size.Width, size.Height));
             }
         }
 

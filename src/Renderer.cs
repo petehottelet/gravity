@@ -257,7 +257,11 @@ namespace Gravity
                     IntPtr fb = Pdfium.FPDFBitmap_CreateEx(tr.Width, tr.Height, Pdfium.FPDFBitmap_BGRA, data.Scan0, data.Stride);
                     Pdfium.FPDFBitmap_FillRect(fb, 0, 0, tr.Width, tr.Height, 0xFFFFFFFF);
                     if (page != IntPtr.Zero)
+                    {
                         Pdfium.FPDF_RenderPageBitmap(fb, page, -tr.X, -tr.Y, k.W, k.H, k.Rot, Pdfium.FPDF_ANNOT);
+                        if (Pdfium.FPDF_GetFormType(k.Src.Doc) != 0)
+                            using (var forms = new PdfForms(k.Src.Doc)) forms.Draw(k.Index, fb, -tr.X, -tr.Y, k.W, k.H, k.Rot, Pdfium.FPDF_ANNOT);
+                    }
                     Pdfium.FPDFBitmap_Destroy(fb);
                 }
                 finally
@@ -281,7 +285,12 @@ namespace Gravity
                     IntPtr fb = Pdfium.FPDFBitmap_CreateEx(w, h, Pdfium.FPDFBitmap_BGRA, data.Scan0, data.Stride);
                     Pdfium.FPDFBitmap_FillRect(fb, 0, 0, w, h, 0xFFFFFFFF);
                     IntPtr page = p.Src != null && !p.Src.IsDisposed ? p.Src.GetPage(p.Index) : IntPtr.Zero;
-                    if (page != IntPtr.Zero) Pdfium.FPDF_RenderPageBitmap(fb, page, 0, 0, w, h, p.Rotation, flags);
+                    if (page != IntPtr.Zero)
+                    {
+                        Pdfium.FPDF_RenderPageBitmap(fb, page, 0, 0, w, h, p.Rotation, flags);
+                        if (Pdfium.FPDF_GetFormType(p.Src.Doc) != 0)
+                            using (var forms = new PdfForms(p.Src.Doc)) forms.Draw(p.Index, fb, 0, 0, w, h, p.Rotation, flags);
+                    }
                     Pdfium.FPDFBitmap_Destroy(fb);
                 }
                 finally

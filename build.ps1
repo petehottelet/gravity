@@ -9,6 +9,18 @@ param([switch]$Test, [switch]$Package)
 
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
+if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
+    throw 'Use bash build-macos.sh on macOS. This script builds the Windows app.'
+}
+
+function Remove-BuildDirectory([string]$Path, [string]$Parent) {
+    $targetPath = [IO.Path]::GetFullPath($Path)
+    $parentPath = [IO.Path]::GetFullPath($Parent).TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+    if (-not $targetPath.StartsWith($parentPath, [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Refusing to remove a directory outside the expected build location.'
+    }
+    if (Test-Path -LiteralPath $targetPath) { Remove-Item -LiteralPath $targetPath -Recurse -Force }
+}
 $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 if (-not (Test-Path $csc)) { throw "C# compiler not found at $csc (.NET Framework 4.8 is required)." }
 
@@ -16,9 +28,10 @@ $bin = Join-Path $root 'bin'
 New-Item -ItemType Directory -Force $bin | Out-Null
 
 $icon = Join-Path $root 'src\Gravity.ico'
-foreach ($asset in 'Gravity.ico', 'GravityPdf.ico', 'Lockup.png') {
-    if (-not (Test-Path (Join-Path $root "src\$asset"))) { throw "src\$asset is missing. Regenerate brand assets: python tools\make_brand.py" }
+foreach ($asset in 'Gravity.ico', 'GravityPdf.ico') {
+    if (-not (Test-Path (Join-Path $root "src\$asset"))) { throw "src\$asset is missing. Regenerate icons: python tools\make_brand.py" }
 }
+if (-not (Test-Path (Join-Path $root 'src\Lockup.png'))) { throw 'src\Lockup.png is missing. Restore the finished logo artwork from the repository.' }
 $resources = @("/resource:$root\src\Gravity.ico,Gravity.ico", "/resource:$root\src\Lockup.png,Lockup.png")
 
 $sources = Get-ChildItem (Join-Path $root 'src') -Filter *.cs | ForEach-Object { $_.FullName }
@@ -48,7 +61,7 @@ if ($Test) {
     $work = Join-Path ([System.IO.Path]::GetTempPath()) ('gravity-tests-' + [Guid]::NewGuid().ToString('N').Substring(0, 8))
     & "$bin\GravityTests.exe" $work
     $code = $LASTEXITCODE
-    Remove-Item -Recurse -Force $work -ErrorAction SilentlyContinue
+    Remove-BuildDirectory $work ([IO.Path]::GetTempPath())
     if ($code -ne 0) { throw "Self-tests failed ($code)." }
 }
 
@@ -56,7 +69,7 @@ if ($Package) {
     $ver = (Get-Item "$bin\Gravity.exe").VersionInfo.FileVersion -replace '\.0$', ''
     $dist = Join-Path $root 'dist'
     $stage = Join-Path $dist "Gravity-$ver"
-    if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
+    Remove-BuildDirectory $stage $dist
     New-Item -ItemType Directory -Force $stage | Out-Null
     Copy-Item "$bin\Gravity.exe", "$bin\pdfium.dll", "$bin\GravityPdf.ico" $stage
     Copy-Item $lic (Join-Path $stage 'licenses') -Recurse
@@ -64,6 +77,6 @@ if ($Package) {
     $zip = Join-Path $dist "Gravity-$ver-win-x64.zip"
     if (Test-Path $zip) { Remove-Item -Force $zip }
     Compress-Archive -Path "$stage\*" -DestinationPath $zip
-    Remove-Item -Recurse -Force $stage
+    Remove-BuildDirectory $stage $dist
     Write-Host "Packaged $zip"
 }

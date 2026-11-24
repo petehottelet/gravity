@@ -23,6 +23,8 @@ namespace Gravity
         public List<RecentFile> Recent = new List<RecentFile>();
         public bool ShowBookmarks = true;
         public int SidebarWidth = 260;
+        public bool ShowPages = true;
+        public int PagePanelWidth = 240;
         public Rectangle WindowBounds = Rectangle.Empty;
         public bool Maximized;
         public int ThumbSize = 160;
@@ -51,6 +53,8 @@ namespace Gravity
                     {
                         case "bookmarks": s.ShowBookmarks = val == "1"; break;
                         case "sidebar": int.TryParse(val, out s.SidebarWidth); break;
+                        case "pages": s.ShowPages = val == "1"; break;
+                        case "pagepanel": int.TryParse(val, out s.PagePanelWidth); break;
                         case "thumb": int.TryParse(val, out s.ThumbSize); break;
                         case "matchcase": s.MatchCase = val == "1"; break;
                         case "maximized": s.Maximized = val == "1"; break;
@@ -102,6 +106,8 @@ namespace Gravity
                 var sb = new StringBuilder();
                 sb.AppendLine("bookmarks=" + (ShowBookmarks ? "1" : "0"));
                 sb.AppendLine("sidebar=" + SidebarWidth);
+                sb.AppendLine("pages=" + (ShowPages ? "1" : "0"));
+                sb.AppendLine("pagepanel=" + PagePanelWidth);
                 sb.AppendLine("thumb=" + ThumbSize);
                 sb.AppendLine("matchcase=" + (MatchCase ? "1" : "0"));
                 sb.AppendLine("maximized=" + (Maximized ? "1" : "0"));

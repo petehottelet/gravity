@@ -155,6 +155,7 @@ namespace Gravity
   Find                        Ctrl+F, /      (F3, Shift+F3 for next/previous)
   Copy selected text          Ctrl+C         (drag across text to select)
   Select all text             Ctrl+A
+  Fill form fields            Ctrl+Shift+F   (or click a field)
 
 ZOOM AND VIEW
   Zoom in / out               +, -, Ctrl+mouse wheel
@@ -168,15 +169,16 @@ ZOOM AND VIEW
   Full screen                 F11
   Presentation                F5, Ctrl+L     (click = next, right-click = previous)
 
-PAGES  (work on the selected pages in Organize, or the current page)
+PAGES  (selection in the Pages panel / Organize, or the current page)
+  Show / hide Pages panel     Ctrl+Shift+E
   Organize pages              Ctrl+E
   Cut / copy / paste pages    Ctrl+X, Ctrl+C, Ctrl+V   (Ctrl+Shift+V pastes before)
   Delete pages                Delete
   Duplicate pages             Ctrl+D
-  Rotate pages                Ctrl+[, Ctrl+]   ([ and ] in Organize)
-  Move pages earlier / later  Alt+Left, Alt+Right (Organize)
-  Select all pages            Ctrl+A (Organize)
-  Thumbnail size              Ctrl+mouse wheel, +, - (Organize)
+  Rotate pages                Ctrl+[, Ctrl+]   ([ and ] with thumbnails focused)
+  Move pages earlier / later  Alt+Up, Alt+Down (thumbnails focused)
+  Select all pages            Ctrl+A (thumbnails focused)
+  Thumbnail size              Ctrl+mouse wheel, +, - (thumbnails focused)
   Undo / redo                 Ctrl+Z, Ctrl+Y
 
 FILES AND TABS

@@ -38,6 +38,7 @@ namespace Gravity.Tests
                 T("bookmarks and internal links", OutlineAndLinks),
                 T("rendering produces ink", Render),
                 T("invalid files are rejected", NotAPdf),
+                T("form filling, saving, and undo", () => FormTests.Run(dir)),
             };
             foreach (var t in tests)
             {
@@ -47,7 +48,7 @@ namespace Gravity.Tests
             if (!args.Contains("--no-ui"))
             {
                 Console.WriteLine("-- user interface (real window, synthetic mouse and keyboard messages)");
-                try { UiTest.Run(dir); }
+                try { UiTest.Run(dir); FormTests.RunUI(dir); }
                 catch (Exception ex) { Fail("UI test threw " + ex); }
             }
             Console.WriteLine();

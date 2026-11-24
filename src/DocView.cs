@@ -35,6 +35,7 @@ namespace Gravity
         public RenderService Renderer;
         public event EventHandler ViewChanged;
         public event Action<string> Notify;
+        public event Action<int, int> FormFieldClicked;
 
         private EditDoc doc;
         private List<PageRef> pages = new List<PageRef>();
@@ -933,6 +934,24 @@ namespace Gravity
             }
             if (e.Button != MouseButtons.Left) return;
             int idx = PageAtClient(e.Location, false);
+            if (idx >= 0 && pages[idx].Src != null && FormFieldClicked != null)
+            {
+                int fieldIndex = -1;
+                lock (Pdfium.Lock)
+                {
+                    double x, y;
+                    if (!pages[idx].Src.IsDisposed && ClientToPdf(idx, e.Location, out x, out y))
+                        foreach (var field in pages[idx].Src.GetFormFields(pages[idx].Index))
+                            if (x >= field.Bounds.Left && x <= field.Bounds.Right && y >= field.Bounds.Bottom && y <= field.Bounds.Top)
+                            { fieldIndex = field.Index; break; }
+                }
+                if (fieldIndex >= 0)
+                {
+                    drag = DragKind.None;
+                    FormFieldClicked(idx, fieldIndex);
+                    return;
+                }
+            }
             if (idx >= 0 && pages[idx].Src != null)
             {
                 lock (Pdfium.Lock)

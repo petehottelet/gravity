@@ -140,6 +140,52 @@ namespace Gravity
             return Encoding.Unicode.GetString(buf, 0, (n - 1) * 2);
         }
 
+        // ---- AcroForm widgets (fpdf_annot.h / fpdf_formfill.h) ---------------
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct FormFillInfo
+        {
+            public int Version;
+            public IntPtr Release, Invalidate, OutputSelectedRect, SetCursor, SetTimer,
+                KillTimer, GetLocalTime, OnChange, GetPage, GetCurrentPage, GetRotation,
+                ExecuteNamedAction, SetTextFieldFocus, DoUriAction, DoGoToAction, JsPlatform;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct PdfRect { public float Left, Top, Right, Bottom; }
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        internal delegate IntPtr FormGetPage(IntPtr info, IntPtr document, int index);
+
+        [DllImport(Dll, CallingConvention = CC)] public static extern IntPtr FPDFDOC_InitFormFillEnvironment(IntPtr doc, IntPtr info);
+        [DllImport(Dll, CallingConvention = CC)] public static extern void FPDFDOC_ExitFormFillEnvironment(IntPtr form);
+        [DllImport(Dll, CallingConvention = CC)] public static extern void FORM_OnAfterLoadPage(IntPtr page, IntPtr form);
+        [DllImport(Dll, CallingConvention = CC)] public static extern void FORM_OnBeforeClosePage(IntPtr page, IntPtr form);
+        [DllImport(Dll, CallingConvention = CC)] public static extern void FPDF_FFLDraw(IntPtr form, IntPtr bitmap, IntPtr page, int x, int y, int width, int height, int rotation, int flags);
+        [DllImport(Dll, CallingConvention = CC)] public static extern int FORM_SetFocusedAnnot(IntPtr form, IntPtr annot);
+        [DllImport(Dll, CallingConvention = CC)] public static extern int FORM_ForceToKillFocus(IntPtr form);
+        [DllImport(Dll, CallingConvention = CC)] public static extern int FORM_SelectAllText(IntPtr form, IntPtr page);
+        [DllImport(Dll, CallingConvention = CC)] public static extern void FORM_ReplaceSelection(IntPtr form, IntPtr page, [MarshalAs(UnmanagedType.LPWStr)] string text);
+        [DllImport(Dll, CallingConvention = CC)] public static extern int FORM_OnChar(IntPtr form, IntPtr page, int character, int modifiers);
+        [DllImport(Dll, CallingConvention = CC)] public static extern int FORM_SetIndexSelected(IntPtr form, IntPtr page, int index, int selected);
+        [DllImport(Dll, CallingConvention = CC)] public static extern int FPDFPage_GetAnnotCount(IntPtr page);
+        [DllImport(Dll, CallingConvention = CC)] public static extern IntPtr FPDFPage_GetAnnot(IntPtr page, int index);
+        [DllImport(Dll, CallingConvention = CC)] public static extern void FPDFPage_CloseAnnot(IntPtr annot);
+        [DllImport(Dll, CallingConvention = CC)] public static extern int FPDFAnnot_GetSubtype(IntPtr annot);
+        [DllImport(Dll, CallingConvention = CC)] public static extern int FPDFAnnot_GetFlags(IntPtr annot);
+        [DllImport(Dll, CallingConvention = CC)] public static extern int FPDFAnnot_GetRect(IntPtr annot, out PdfRect rect);
+        [DllImport(Dll, CallingConvention = CC)] public static extern int FPDFAnnot_GetFormFieldFlags(IntPtr form, IntPtr annot);
+        [DllImport(Dll, CallingConvention = CC)] public static extern int FPDFAnnot_GetFormFieldType(IntPtr form, IntPtr annot);
+        [DllImport(Dll, CallingConvention = CC)] public static extern uint FPDFAnnot_GetFormFieldName(IntPtr form, IntPtr annot, byte[] buffer, uint length);
+        [DllImport(Dll, CallingConvention = CC)] public static extern uint FPDFAnnot_GetFormFieldAlternateName(IntPtr form, IntPtr annot, byte[] buffer, uint length);
+        [DllImport(Dll, CallingConvention = CC)] public static extern uint FPDFAnnot_GetFormFieldValue(IntPtr form, IntPtr annot, byte[] buffer, uint length);
+        [DllImport(Dll, CallingConvention = CC)] public static extern uint FPDFAnnot_GetFormFieldExportValue(IntPtr form, IntPtr annot, byte[] buffer, uint length);
+        [DllImport(Dll, CallingConvention = CC)] public static extern int FPDFAnnot_GetOptionCount(IntPtr form, IntPtr annot);
+        [DllImport(Dll, CallingConvention = CC)] public static extern uint FPDFAnnot_GetOptionLabel(IntPtr form, IntPtr annot, int index, byte[] buffer, uint length);
+        [DllImport(Dll, CallingConvention = CC)] public static extern int FPDFAnnot_IsOptionSelected(IntPtr form, IntPtr annot, int index);
+        [DllImport(Dll, CallingConvention = CC)] public static extern int FPDFAnnot_IsChecked(IntPtr form, IntPtr annot);
+        [DllImport(Dll, CallingConvention = CC)] public static extern uint FPDF_GetDocPermissions(IntPtr doc);
+        [DllImport(Dll, CallingConvention = CC)] public static extern int FPDF_GetFormType(IntPtr doc);
+
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int WriteBlockFn(IntPtr self, IntPtr data, uint size);
 

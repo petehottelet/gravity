@@ -37,6 +37,13 @@ namespace Gravity
         private ToolStrip toolbar;
         private TabStrip tabStrip;
         private Panel sidebar, host;
+        private Panel pagePanel, pageBody, pageRail, content;
+        private Splitter pageSplitter;
+        private Label pageSelection;
+        private ToolStripButton pRotateLeft, pRotateRight, pDelete, pEarlier, pLater;
+        private ToolStripMenuItem pCut, pCopy, pPaste, pDuplicate, pExtract, pSave;
+        private ToolStripMenuItem miPagePanel;
+        private bool pageSelectionActive, syncingPages, layingOutPanels;
         private TreeView toc;
         private Label tocEmpty;
         private Splitter splitter;
@@ -158,10 +165,15 @@ namespace Gravity
             splitter = new Splitter { Dock = DockStyle.Left, Width = S(4), BackColor = Theme.ViewBack, MinSize = S(120), MinExtra = S(200), Visible = false };
             splitter.SplitterMoved += delegate { settings.SidebarWidth = (int)Math.Round(sidebar.Width * 96f / dpi); };
 
-            var content = new Panel { Dock = DockStyle.Fill };
+            BuildPagePanel();
+            content = new Panel { Dock = DockStyle.Fill };
             content.Controls.Add(host);
+            content.Controls.Add(pageSplitter);
+            content.Controls.Add(pagePanel);
+            content.Controls.Add(pageRail);
             content.Controls.Add(splitter);
             content.Controls.Add(sidebar);
+            content.Resize += delegate { ApplySidebar(); };
 
             BuildToolbar();
             BuildMenu();
@@ -176,8 +188,10 @@ namespace Gravity
             ResumeLayout(true);
 
             // events
-            view.ViewChanged += delegate { UpdateUI(); };
+            view.ViewChanged += delegate { SyncPageSelection(); UpdateUI(); };
+            view.Enter += delegate { pageSelectionActive = false; SyncPageSelection(); UpdateUI(); };
             view.Notify += Toast;
+            view.FormFieldClicked += FillForm;
             view.DragEnter += OnFileDragEnter;
             view.DragDrop += OnFileDragDrop;
             home.DragEnter += OnFileDragEnter;
@@ -188,16 +202,131 @@ namespace Gravity
             home.CombineRequested += delegate { CombineFiles(); };
             home.RecentRequested += path => OpenFiles(new[] { path }, -1);
             home.RecentRemoveRequested += path => { settings.Forget(path); home.SetRecent(settings.Recent); };
-            organizer.SelectionChanged += delegate { UpdateUI(); };
+            organizer.Enter += delegate { pageSelectionActive = true; UpdateUI(); };
+            organizer.SelectionChanged += delegate
+            {
+                if (!syncingPages && !Organizing && pagePanel.Visible && organizer.ContainsFocus)
+                {
+                    pageSelectionActive = true;
+                    if (organizer.FocusIndex >= 0) view.GoToPage(organizer.FocusIndex, false);
+                }
+                UpdateUI();
+            };
             organizer.MoveRequested += (moving, at) => Guard(() => MovePages(moving, at));
             organizer.FilesDropped += (files, at) => Guard(() => InsertFiles(files, at));
-            organizer.OpenPageRequested += i => { SetOrganize(false); view.GoToPage(i, false); };
+            organizer.OpenPageRequested += i => { SetOrganize(false); view.GoToPage(i, false); view.Focus(); };
             tabStrip.TabSelected += i => ActivateTab(tabs[i]);
             tabStrip.TabCloseRequested += i => CloseTab(tabs[i]);
             tabStrip.AddRequested += delegate { OpenDialog(); };
             toc.NodeMouseClick += (s, e) => { if (e.Button == MouseButtons.Left) NavigateToc(e.Node); };
             toc.AfterSelect += (s, e) => { if (e.Action == TreeViewAction.ByKeyboard) NavigateToc(e.Node); };
             toc.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) { NavigateToc(toc.SelectedNode); e.SuppressKeyPress = true; } };
+        }
+
+        private ToolStrip PageTools()
+        {
+            return new ToolStrip
+            {
+                Dock = DockStyle.Top, GripStyle = ToolStripGripStyle.Hidden,
+                Renderer = new FlatRenderer(), BackColor = Color.White,
+                ImageScalingSize = new Size(S(16), S(16)),
+                Padding = new Padding(S(5), S(2), S(5), S(2)), Font = Font,
+            };
+        }
+
+        private void PageAction(Action action)
+        {
+            pageSelectionActive = true;
+            organizer.Focus();
+            action();
+        }
+
+        private void BuildPagePanel()
+        {
+            pagePanel = new Panel { Dock = DockStyle.Right, Width = S(240), BackColor = Color.White, Visible = false };
+            pageBody = new Panel { Dock = DockStyle.Fill };
+            var header = PageTools();
+            header.Items.Add(new ToolStripLabel("Pages") { Font = new Font("Segoe UI Semibold", 9f) });
+            var collapse = Btn("\uE76C", "Collapse pages (Ctrl+Shift+E)", TogglePagePanel);
+            collapse.Alignment = ToolStripItemAlignment.Right;
+            collapse.AccessibleName = "Collapse pages";
+            header.Items.Add(collapse);
+
+            var edits = PageTools();
+            pRotateLeft = Btn("\uE7AD", "Rotate selected pages left", () => PageAction(() => RotatePages(-1)), null, null, true);
+            pRotateRight = Btn("\uE7AD", "Rotate selected pages right", () => PageAction(() => RotatePages(1)));
+            pEarlier = Btn("\uE70E", "Move selected pages earlier (Alt+Up)", () => PageAction(() => MoveBy(-1)));
+            pLater = Btn("\uE70D", "Move selected pages later (Alt+Down)", () => PageAction(() => MoveBy(1)));
+            pDelete = Btn("\uE74D", "Delete selected pages (Delete)", () => PageAction(DeletePages));
+            edits.Items.AddRange(new ToolStripItem[] { pRotateLeft, pRotateRight, new ToolStripSeparator(), pEarlier, pLater, new ToolStripSeparator(), pDelete });
+
+            var actions = PageTools();
+            var insert = new ToolStripDropDownButton("Insert") { ToolTipText = "Insert pages after the selection" };
+            insert.DropDownItems.Add(MI("Pages from File…", null, () => PageAction(InsertFromFileDialog)));
+            insert.DropDownItems.Add(MI("Blank Page", null, () => PageAction(InsertBlank)));
+            var more = new ToolStripDropDownButton("More") { ToolTipText = "More page actions" };
+            pCut = MI("Cut Pages", "Ctrl+X", () => PageAction(CutPages));
+            pCopy = MI("Copy Pages", "Ctrl+C", () => PageAction(CopyPages));
+            pPaste = MI("Paste Pages", "Ctrl+V", () => PageAction(() => PastePages(false)));
+            pDuplicate = MI("Duplicate Pages", "Ctrl+D", () => PageAction(DuplicatePages));
+            pExtract = MI("Extract to New Tab", null, () => PageAction(ExtractPages));
+            pSave = MI("Save Pages As…", null, () => PageAction(SaveSelectedPagesAs));
+            more.DropDownItems.AddRange(new ToolStripItem[] { pCut, pCopy, pPaste, pDuplicate, new ToolStripSeparator(), pExtract, pSave,
+                new ToolStripSeparator(), MI("Select All Pages", "Ctrl+A", () => PageAction(() => organizer.SelectAll())),
+                MI("Open Full Organizer", "Ctrl+E", () => SetOrganize(true)) });
+            actions.Items.AddRange(new ToolStripItem[] { insert, more });
+            pageSelection = new Label { Dock = DockStyle.Top, Height = S(28), Padding = new Padding(S(10), 0, 0, 0),
+                TextAlign = ContentAlignment.MiddleLeft, ForeColor = Theme.SubtleText };
+            var hint = new Label { Text = "Drag to reorder · Ctrl / Shift to select", Dock = DockStyle.Bottom,
+                Height = S(42), Padding = new Padding(S(8), S(4), S(8), S(4)), ForeColor = Theme.SubtleText,
+                TextAlign = ContentAlignment.MiddleLeft };
+            pagePanel.Controls.Add(pageBody);
+            pagePanel.Controls.Add(hint);
+            pagePanel.Controls.Add(pageSelection);
+            pagePanel.Controls.Add(actions);
+            pagePanel.Controls.Add(edits);
+            pagePanel.Controls.Add(header);
+            pagePanel.Controls.Add(new Panel { Dock = DockStyle.Left, Width = 1, BackColor = Theme.ChromeBorder });
+
+            pageRail = new Panel { Dock = DockStyle.Right, Width = S(34), BackColor = Color.White, Visible = false };
+            var railTools = PageTools();
+            railTools.Padding = Padding.Empty;
+            var expand = Btn("\uE8A5", "Show pages (Ctrl+Shift+E)", TogglePagePanel);
+            expand.AccessibleName = "Show pages";
+            railTools.Items.Add(expand);
+            pageRail.Controls.Add(railTools);
+            pageRail.Controls.Add(new Panel { Dock = DockStyle.Left, Width = 1, BackColor = Theme.ChromeBorder });
+            pageSplitter = new Splitter { Dock = DockStyle.Right, Width = S(4), BackColor = Theme.ChromeBorder,
+                MinSize = S(196), MinExtra = S(220), Visible = false };
+            pageSplitter.SplitterMoved += delegate
+            {
+                settings.PagePanelWidth = (int)Math.Round(pagePanel.Width * 96f / dpi);
+                ApplySidebar();
+            };
+        }
+
+        private bool PageTargets { get { return Organizing || (pagePanel.Visible && pageSelectionActive); } }
+
+        private void SyncPageSelection()
+        {
+            if (syncingPages || Organizing || active == null || organizer.Document != active.Doc || view.Document != active.Doc) return;
+            if (view.CurrentPage != organizer.FocusIndex) pageSelectionActive = false;
+            if (PageTargets) return;
+            syncingPages = true;
+            try { organizer.SelectPage(view.CurrentPage); }
+            finally { syncingPages = false; }
+        }
+
+        private void TogglePagePanel()
+        {
+            if (active == null || presentationMode) return;
+            settings.ShowPages = !settings.ShowPages;
+            if (Organizing) SetOrganize(false);
+            pageSelectionActive = false;
+            ShowMode();
+            SyncPageSelection();
+            UpdateUI();
+            if (pagePanel.Visible) organizer.Focus(); else view.Focus();
         }
 
         private ToolStripButton Btn(string glyph, string tip, Action click, string text = null, string font = null, bool mirror = false)
@@ -324,6 +453,22 @@ namespace Gravity
             return m;
         }
 
+        private void FillForm(int pageIndex, int fieldIndex)
+        {
+            if (active == null || pageIndex < 0 || pageIndex >= active.Doc.Pages.Count) return;
+            var page = active.Doc.Pages[pageIndex];
+            try
+            {
+                List<PdfFormField> fields;
+                lock (Pdfium.Lock) fields = page.Src == null ? new List<PdfFormField>() : page.Src.GetFormFields(page.Index);
+                if (fields.Count == 0) { Toast("No form fields on this page."); return; }
+                using (var editor = new FormEditor(fields, pageIndex, fieldIndex))
+                    if (editor.ShowDialog(this) == DialogResult.OK) active.Doc.FillForm(pageIndex, editor.Edits);
+            }
+            catch (Exception ex) { MessageBox.Show(this, ex.Message, "Could not fill form", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+            FocusCanvas();
+        }
+
         private void BuildMenu()
         {
             menu = new MenuStrip { Renderer = new FlatRenderer(), BackColor = Theme.Chrome, Padding = new Padding(S(4), S(2), 0, S(2)), Font = new Font("Segoe UI", 9f) };
@@ -351,7 +496,8 @@ namespace Gravity
             miFind = MI("&Find…", "Ctrl+F", FocusFind);
             miFindNext = MI("Find &Next", "F3", () => FindNext(true));
             miFindPrev = MI("Find Pre&vious", "Shift+F3", () => FindNext(false));
-            edit.DropDownItems.AddRange(new ToolStripItem[] { miUndo, miRedo, new ToolStripSeparator(), miCopyText, miSelectAll, new ToolStripSeparator(), miFind, miFindNext, miFindPrev });
+            edit.DropDownItems.AddRange(new ToolStripItem[] { miUndo, miRedo, new ToolStripSeparator(), miCopyText, miSelectAll, new ToolStripSeparator(), miFind, miFindNext, miFindPrev,
+                new ToolStripSeparator(), MI("Fill &Form…", "Ctrl+Shift+F", () => FillForm(view.CurrentPage, -1)) });
 
             var viewM = new ToolStripMenuItem("&View");
             miOrganize = MI("&Organize Pages", "Ctrl+E", ToggleOrganize);
@@ -367,13 +513,14 @@ namespace Gravity
             miRotL = MI("Rotate View &Left", "[", () => view.RotateView(-1));
             miRotR = MI("Rotate View &Right", "]", () => view.RotateView(1));
             miBookmarks = MI("&Bookmarks", "F12", ToggleSidebar);
+            miPagePanel = MI("&Pages Panel", "Ctrl+Shift+E", TogglePagePanel);
             miFullscreen = MI("F&ull Screen", "F11", ToggleFullscreen);
             miPresentation = MI("Pr&esentation", "F5", TogglePresentation);
             viewM.DropDownItems.AddRange(new ToolStripItem[]
             {
                 miOrganize, new ToolStripSeparator(), miSingle, miFacing, miBook, miContinuous, new ToolStripSeparator(),
                 miFitPage, miFitWidth, miActual, miZoomIn, miZoomOut, new ToolStripSeparator(), miRotL, miRotR, new ToolStripSeparator(),
-                miBookmarks, miFullscreen, miPresentation,
+                miBookmarks, miPagePanel, miFullscreen, miPresentation,
             });
 
             var go = new ToolStripMenuItem("&Go");
@@ -400,7 +547,7 @@ namespace Gravity
             miInsertBlank = MI("Insert Bla&nk Page", null, InsertBlank);
             miInsertFile = MI("&Insert Pages from File…", null, InsertFromFileDialog);
             miExtract = MI("E&xtract Pages to New Tab", null, ExtractPages);
-            miSelectAllPages = MI("Select &All Pages", "Ctrl+A", () => organizer.SelectAll());
+            miSelectAllPages = MI("Select &All Pages", "Ctrl+A", () => PageAction(() => organizer.SelectAll()));
             pagesM.DropDownItems.AddRange(new ToolStripItem[]
             {
                 miCut, miCopy, miPaste, miPasteBefore, miDelete, miDuplicate, new ToolStripSeparator(), miPRotL, miPRotR,
@@ -450,6 +597,7 @@ namespace Gravity
                     int f = organizer.FocusIndex;
                     SetOrganize(false);
                     if (f >= 0) view.GoToPage(f, false);
+                    view.Focus();
                 }),
             });
             organizerMenu.Opening += delegate
@@ -631,8 +779,9 @@ namespace Gravity
 
         private void ActivateTab(DocTab tab)
         {
-            if (tab == active) { UpdateUI(); return; }
+            if (tab == active && tab != null) { UpdateUI(); return; }
             SaveActiveState();
+            pageSelectionActive = false;
             active = tab;
             ShowMode();
             if (tab == null)
@@ -654,9 +803,16 @@ namespace Gravity
         private void ShowMode()
         {
             bool has = active != null, org = has && active.Organize;
+            var parent = org ? host : pageBody;
+            if (organizer.Parent != parent) parent.Controls.Add(organizer);
+            organizer.SidebarMode = !org;
             home.Visible = !has;
             view.Visible = has && !org;
-            organizer.Visible = org;
+            pagePanel.Visible = has && !org && !fullscreen && settings.ShowPages;
+            pageRail.Visible = has && !org && !fullscreen && !settings.ShowPages;
+            pageSplitter.Visible = pagePanel.Visible;
+            organizer.Visible = org || pagePanel.Visible;
+            ApplySidebar();
             // Drop queued renders for whichever view is now hidden.
             if (!view.Visible) renderer.Request(RenderService.ClientView, new List<TileKey>());
             if (!organizer.Visible) renderer.Request(RenderService.ClientThumbs, new List<TileKey>());
@@ -664,7 +820,7 @@ namespace Gravity
 
         private void FocusCanvas()
         {
-            if (organizer.Visible) organizer.Focus();
+            if (Organizing) organizer.Focus();
             else if (view.Visible) view.Focus();
             else home.Focus();
         }
@@ -717,9 +873,17 @@ namespace Gravity
         {
             var doc = (EditDoc)sender;
             if (active == null || doc != active.Doc) { UpdateTabs(); return; }
-            view.OnDocumentChanged();
-            organizer.OnDocumentChanged(pendingSelection);
+            syncingPages = true;
+            try
+            {
+                view.OnDocumentChanged();
+                organizer.OnDocumentChanged(pendingSelection);
+                if (PageTargets && !Organizing && organizer.FocusIndex >= 0)
+                    view.GoToPage(organizer.FocusIndex, false);
+            }
+            finally { syncingPages = false; }
             pendingSelection = null;
+            SyncPageSelection();
             if (doc.Base != tocBase) { LoadToc(); ApplySidebar(); }
             UpdateUI();
         }
@@ -790,17 +954,17 @@ namespace Gravity
 
         private List<PageRef> Pages { get { return active != null ? active.Doc.Pages : new List<PageRef>(); } }
 
-        /// <summary>Pages a command acts on: the selection in Organize mode, otherwise the current page.</summary>
+        /// <summary>Use the active thumbnail selection, or the current reading page.</summary>
         private List<int> Targets()
         {
             if (active == null || active.Doc.Pages.Count == 0) return new List<int>();
-            return Organizing ? organizer.SelectedIndices() : new List<int> { view.CurrentPage };
+            return PageTargets ? organizer.SelectedIndices() : new List<int> { view.CurrentPage };
         }
 
         private int PastePoint(bool before)
         {
             int n = Pages.Count;
-            if (Organizing) return organizer.InsertionPoint(before);
+            if (PageTargets) return organizer.InsertionPoint(before);
             if (n == 0) return 0;
             return Math.Max(0, Math.Min(n, view.CurrentPage + (before ? 0 : 1)));
         }
@@ -1214,7 +1378,7 @@ namespace Gravity
 
         private void Toast(string text)
         {
-            if (organizer.Visible) organizer.ShowToast(text);
+            if (Organizing) organizer.ShowToast(text);
             else if (view.Visible) view.ShowToast(text);
         }
 
@@ -1269,12 +1433,20 @@ namespace Gravity
 
         private void ApplySidebar()
         {
-            bool show = settings.ShowBookmarks && active != null && toc.Nodes.Count > 0 && !fullscreen;
-            if (sidebar.Visible != show)
+            if (content == null || layingOutPanels) return;
+            layingOutPanels = true;
+            try
             {
+                int available = content.ClientSize.Width;
+                int desired = S(Math.Max(196, Math.Min(480, settings.PagePanelWidth)));
+                pagePanel.Width = Math.Min(desired, Math.Max(S(196), available - S(240)));
+                int right = pagePanel.Visible ? pagePanel.Width + pageSplitter.Width : pageRail.Visible ? pageRail.Width : 0;
+                bool show = settings.ShowBookmarks && active != null && toc.Nodes.Count > 0 && !fullscreen &&
+                    available - right - sidebar.Width >= S(240);
                 sidebar.Visible = show;
                 splitter.Visible = show;
             }
+            finally { layingOutPanels = false; }
         }
 
         // ---- full screen / presentation -------------------------------------------
@@ -1312,6 +1484,7 @@ namespace Gravity
                 ApplySidebar();
             }
             ResumeLayout(true);
+            ShowMode();
             UpdateUI();
         }
 
@@ -1456,7 +1629,7 @@ namespace Gravity
 
         private bool HandleKey(Keys k)
         {
-            bool has = active != null, org = Organizing;
+            bool has = active != null, org = Organizing || (pagePanel.Visible && pageSelectionActive && !view.Focused);
             bool text = TextFocused, tree = toc.Focused;
             switch (k)
             {
@@ -1467,7 +1640,9 @@ namespace Gravity
                 case Keys.Control | Keys.W:
                 case Keys.Control | Keys.F4: CloseTab(active); return true;
                 case Keys.Control | Keys.E: ToggleOrganize(); return true;
+                case Keys.Control | Keys.Shift | Keys.E: TogglePagePanel(); return true;
                 case Keys.Control | Keys.F: FocusFind(); return true;
+                case Keys.Control | Keys.Shift | Keys.F: FillForm(view.CurrentPage, -1); return true;
                 case Keys.F3: FindNext(true); return true;
                 case Keys.Shift | Keys.F3: FindNext(false); return true;
                 case Keys.Control | Keys.G: FocusPageBox(); return true;
@@ -1514,7 +1689,9 @@ namespace Gravity
                     case Keys.OemOpenBrackets: RotatePages(-1); return true;
                     case Keys.OemCloseBrackets: RotatePages(1); return true;
                     case Keys.Alt | Keys.Left: MoveBy(-1); return true;
+                    case Keys.Alt | Keys.Up: MoveBy(-1); return true;
                     case Keys.Alt | Keys.Right: MoveBy(1); return true;
+                    case Keys.Alt | Keys.Down: MoveBy(1); return true;
                     case Keys.Oemplus:
                     case Keys.Shift | Keys.Oemplus:
                     case Keys.Add:
@@ -1608,7 +1785,18 @@ namespace Gravity
                 foreach (var it in readGroup) it.Visible = has && !org;
                 foreach (var it in editGroup) it.Visible = has && org;
                 foreach (var it in findGroup) it.Visible = has && !org;
-                int selCount = !has ? 0 : org ? organizer.SelectedIndices().Count : (n > 0 ? 1 : 0);
+                bool pageTargets = PageTargets;
+                int selCount = !has ? 0 : pageTargets ? organizer.SelectedIndices().Count : (n > 0 ? 1 : 0);
+                var panelIndices = organizer.SelectedIndices();
+                int panelCount = has ? panelIndices.Count : 0;
+                pageSelection.Text = panelCount + " selected · " + Count(n);
+                pRotateLeft.Enabled = pRotateRight.Enabled = pCopy.Enabled = pDuplicate.Enabled = pExtract.Enabled = pSave.Enabled = panelCount > 0;
+                pDelete.Enabled = pCut.Enabled = panelCount > 0 && panelCount < n;
+                pPaste.Enabled = has && clipboard.Count > 0;
+                pEarlier.Enabled = panelCount > 0 && panelIndices[0] > 0;
+                pLater.Enabled = panelCount > 0 && panelIndices[panelCount - 1] < n - 1;
+                miPagePanel.Enabled = has && !presentationMode;
+                miPagePanel.Checked = has && settings.ShowPages;
 
                 bSave.Enabled = has && n > 0 && (doc.IsModified || doc.FilePath == null);
                 bPrint.Enabled = has && n > 0;
@@ -1664,20 +1852,20 @@ namespace Gravity
                 miMoveEarlier.Enabled = miMoveLater.Enabled = selCount > 0 && n > 1;
                 miPaste.Enabled = miPasteBefore.Enabled = has && clipboard.Count > 0;
                 miInsertBlank.Enabled = miInsertFile.Enabled = has;
-                miSelectAllPages.Enabled = org;
+                miSelectAllPages.Enabled = org || pagePanel.Visible;
                 // Some keys mean different things in the two modes; show them where they apply.
-                miCopyText.ShortcutKeyDisplayString = org ? "" : "Ctrl+C";
-                miSelectAll.ShortcutKeyDisplayString = org ? "" : "Ctrl+A";
-                miCopy.ShortcutKeyDisplayString = org ? "Ctrl+C" : "";
-                miCut.ShortcutKeyDisplayString = org ? "Ctrl+X" : "";
-                miDelete.ShortcutKeyDisplayString = org ? "Del" : "";
-                miSelectAllPages.ShortcutKeyDisplayString = org ? "Ctrl+A" : "";
-                miMoveEarlier.ShortcutKeyDisplayString = org ? "Alt+Left" : "";
-                miMoveLater.ShortcutKeyDisplayString = org ? "Alt+Right" : "";
-                miCut.Text = org ? "Cu&t Pages" : "Cu&t Current Page";
-                miCopy.Text = org ? "&Copy Pages" : "&Copy Current Page";
-                miDelete.Text = org ? "&Delete Pages" : "&Delete Current Page";
-                miPaste.Text = org ? "&Paste Pages After Selection" : "&Paste Pages After Current Page";
+                miCopyText.ShortcutKeyDisplayString = pageTargets ? "" : "Ctrl+C";
+                miSelectAll.ShortcutKeyDisplayString = pageTargets ? "" : "Ctrl+A";
+                miCopy.ShortcutKeyDisplayString = pageTargets ? "Ctrl+C" : "";
+                miCut.ShortcutKeyDisplayString = pageTargets ? "Ctrl+X" : "";
+                miDelete.ShortcutKeyDisplayString = pageTargets ? "Del" : "";
+                miSelectAllPages.ShortcutKeyDisplayString = pageTargets ? "Ctrl+A" : "";
+                miMoveEarlier.ShortcutKeyDisplayString = pageTargets ? "Alt+Left" : "";
+                miMoveLater.ShortcutKeyDisplayString = pageTargets ? "Alt+Right" : "";
+                miCut.Text = pageTargets ? "Cu&t Pages" : "Cu&t Current Page";
+                miCopy.Text = pageTargets ? "&Copy Pages" : "&Copy Current Page";
+                miDelete.Text = pageTargets ? "&Delete Pages" : "&Delete Current Page";
+                miPaste.Text = pageTargets ? "&Paste Pages After Selection" : "&Paste Pages After Current Page";
             }
             finally
             {

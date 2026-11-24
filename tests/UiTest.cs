@@ -334,6 +334,153 @@ namespace Gravity.Tests
             form.Close();
             Pump(200);
             Check(form.IsDisposed, "window closes without prompting");
+            PagePanelTests(dir);
+        }
+
+        private static void PagePanelTests(string dir)
+        {
+            Console.WriteLine("-- collapsible pages panel");
+            string a = Path.Combine(dir, "panel-A.pdf"), b = Path.Combine(dir, "panel-B.pdf");
+            File.Copy(Path.Combine(dir, "A.pdf"), a, true);
+            File.Copy(Path.Combine(dir, "B.pdf"), b, true);
+            form = new MainForm(new[] { a, b }, true) { ShowInTaskbar = false, StartPosition = FormStartPosition.Manual,
+                Bounds = new Rectangle(-4000, -4000, 1180, 860) };
+            form.Show();
+            Pump(300);
+            Key(Keys.Alt | Keys.D1);
+            var tabs = Field<List<DocTab>>(form, "tabs");
+            var view = Field<DocView>(form, "view");
+            var org = Field<OrganizerView>(form, "organizer");
+            var panel = Field<Panel>(form, "pagePanel");
+            var rail = Field<Panel>(form, "pageRail");
+            var doc = tabs[0].Doc;
+            string original = Texts(doc);
+            int count = doc.Pages.Count;
+            Check(panel.Visible && view.Visible && org.Visible && org.SidebarMode, "pages panel opens alongside the reader");
+            int openWidth = view.Width;
+            Key(Keys.Control | Keys.Shift | Keys.E);
+            Check(!panel.Visible && rail.Visible && view.Width > openWidth, "collapsing pages returns space to the reader");
+            Key(Keys.Control | Keys.Tab);
+            Check(!panel.Visible && rail.Visible, "collapsed state survives tab switching");
+            Key(Keys.Alt | Keys.D1);
+            Key(Keys.Control | Keys.Shift | Keys.E);
+            Check(panel.Visible && !rail.Visible && view.Width == openWidth, "pages panel expands again");
+            view.Focus();
+            view.GoToPage(1, false);
+            Check(org.SelectedIndices().SequenceEqual(new[] { 1 }), "reader navigation updates the thumbnail selection");
+            org.EnsureVisible(0);
+            Click(org, CellCenter(org, 0));
+            Check(view.CurrentPage == 0 && view.Visible, "clicking a thumbnail navigates without leaving the reader");
+
+            // A vertical list must insert above/below pages, independent of horizontal pointer position.
+            var cell = (Rectangle)Call(org, "CellRect", 1);
+            int scroll = Field<int>(org, "ScrollY");
+            Check((int)Call(org, "InsertIndexAt", new Point(cell.Right - 8, cell.Top + 8 - scroll)) == 1 &&
+                (int)Call(org, "InsertIndexAt", new Point(cell.Left + 8, cell.Bottom - 8 - scroll)) == 2,
+                "sidebar drag positions use vertical page boundaries");
+            var first = doc.Pages[0];
+            Drag(org, CellCenter(org, 0), new Point(cell.Left + cell.Width / 2, cell.Bottom - 8 - scroll));
+            Check(ReferenceEquals(doc.Pages[1], first) && view.Visible, "dragging thumbnails reorders pages alongside the reader");
+            Key(Keys.Control | Keys.Z);
+            Eq(original, Texts(doc), "undo restores sidebar drag order");
+
+            org.EnsureVisible(0);
+            Click(org, CellCenter(org, 0));
+            Click(org, CellCenter(org, 1), MK_SHIFT);
+            Check(org.SelectedIndices().SequenceEqual(new[] { 0, 1 }), "sidebar Shift-click selects multiple pages");
+            Field<ToolStripButton>(form, "pRotateRight").PerformClick();
+            Check(Field<string>(org, "toast") == null && Field<string>(view, "toast") != null,
+                "sidebar edit notifications appear in the reader");
+            Check(doc.Pages[0].Rotation == 1 && doc.Pages[1].Rotation == 1 && doc.Pages[2].Rotation == 0,
+                "panel rotation applies to the whole selection only");
+            Check(org.SelectedIndices().Count == 2, "rotation preserves the multi-page selection");
+            Key(Keys.Control | Keys.Z);
+            Key(Keys.Control | Keys.Y);
+            Check(doc.Pages[0].Rotation == 1 && doc.Pages[1].Rotation == 1, "panel edits support redo");
+            Key(Keys.Control | Keys.Z);
+            Click(org, CellCenter(org, 0));
+            Click(org, CellCenter(org, 1), MK_CONTROL);
+            Field<ToolStripMenuItem>(form, "pDuplicate").PerformClick();
+            Check(doc.Pages.Count == count + 2 && org.SelectedIndices().Count == 2, "More menu duplicates the selected pages");
+            Key(Keys.Control | Keys.Z);
+            Click(org, CellCenter(org, 0));
+            Click(org, CellCenter(org, 1), MK_SHIFT);
+            Field<ToolStripButton>(form, "pDelete").PerformClick();
+            Check(doc.Pages.Count == count - 2, "panel delete removes the selected pages");
+            Key(Keys.Control | Keys.Z);
+            Key(Keys.Control | Keys.A);
+            Check(!Field<ToolStripButton>(form, "pDelete").Enabled, "delete is disabled when every page is selected");
+            Key(Keys.Delete);
+            Check(doc.Pages.Count == count, "keyboard delete cannot remove every page");
+            Click(org, CellCenter(org, 0));
+            Key(Keys.Control | Keys.C);
+            Key(Keys.Control | Keys.Tab);
+            int otherCount = tabs[1].Doc.Pages.Count;
+            Key(Keys.Control | Keys.V);
+            Check(tabs[1].Doc.Pages.Count == otherCount + 1, "pages copied in the sidebar paste across tabs");
+            Key(Keys.Control | Keys.Z);
+            Key(Keys.Alt | Keys.D1);
+            Click(org, CellCenter(org, 0));
+            Call(form, "InsertBlank");
+            Check(doc.Pages.Count == count + 1 && doc.Pages[1].Src == null, "blank pages insert after the sidebar selection");
+            Key(Keys.Control | Keys.Z);
+            Click(org, CellCenter(org, 0));
+            Field<ToolStripMenuItem>(form, "pExtract").PerformClick();
+            Check(tabs.Count == 3 && tabs[2].Doc.Pages.Count == 1 && panel.Visible, "sidebar extraction opens a new tab with pages panel");
+            tabs[2].Doc.SaveAs(Path.Combine(dir, "panel-extract.pdf"));
+            Key(Keys.Control | Keys.W);
+            Key(Keys.Alt | Keys.D1);
+
+            // Keyboard focus in the reader must retain text commands and view-only rotation.
+            view.Focus();
+            Key(Keys.Control | Keys.A);
+            Check(view.HasSelection, "Ctrl+A in the reader still selects text");
+            Key(Keys.OemCloseBrackets);
+            Check(view.ViewRotation == 1 && !doc.IsModified, "reader rotation does not edit pages while the panel is open");
+            Key(Keys.OemOpenBrackets);
+            Key(Keys.Escape);
+            Key(Keys.Control | Keys.E);
+            Check(!panel.Visible && org.Visible && !org.SidebarMode && !view.Visible, "full organizer remains available");
+            Key(Keys.Control | Keys.E);
+            Check(panel.Visible && view.Visible && org.SidebarMode, "leaving organizer restores the pages panel");
+            Key(Keys.F5);
+            Check(!panel.Visible && !rail.Visible && view.Presentation, "presentation hides both pages panel and rail");
+            Key(Keys.Escape);
+            Check(panel.Visible, "leaving presentation restores the panel");
+
+            view.GoToPage(0, false);
+            CapturePanel("pages-expanded");
+            form.Size = form.MinimumSize;
+            Pump(100);
+            Check(view.Width > 0 && panel.Right <= panel.Parent.ClientSize.Width && panel.Left >= view.Parent.Right,
+                "pages panel and reader fit at minimum window size");
+            CapturePanel("pages-narrow");
+            Key(Keys.Control | Keys.Shift | Keys.E);
+            CapturePanel("pages-collapsed");
+            Check(!Field<AppSettings>(form, "settings").ShowPages, "collapse updates the saved panel preference");
+            Check(tabs.All(t => !t.Doc.IsModified), "all sidebar test edits were undone");
+            while (tabs.Count > 0) Key(Keys.Control | Keys.W);
+            Check(!panel.Visible && !rail.Visible && !view.Visible && Field<HomeView>(form, "home").Visible,
+                "closing the last document hides the panel and returns home");
+            form.Close();
+            Pump(100);
+        }
+
+        private static void CapturePanel(string name)
+        {
+            string folder = Environment.GetEnvironmentVariable("GRAVITY_TEST_SCREENSHOTS");
+            if (string.IsNullOrEmpty(folder)) return;
+            Directory.CreateDirectory(folder);
+            PumpUntil(() => Field<RenderService>(form, "renderer").IsIdle, 3000);
+            using (var bitmap = new Bitmap(form.Width, form.Height))
+            {
+                // Offscreen controls first paint here, so prime thumbnail requests before capturing.
+                form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.Size));
+                PumpUntil(() => Field<RenderService>(form, "renderer").IsIdle, 3000);
+                Pump(2300);
+                form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.Size));
+                bitmap.Save(Path.Combine(folder, name + ".png"), System.Drawing.Imaging.ImageFormat.Png);
+            }
         }
 
         private static void Eq(string expected, string actual, string what)

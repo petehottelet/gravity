@@ -60,17 +60,16 @@ enum MacTests {
             originalBytes.append(Data("\n% Original undo fixture\n".utf8))
             try document.read(from: originalBytes, ofType: "com.adobe.pdf")
             guard let undo = document.undoManager else { throw PDFError.invalid }
-            // The self-tests run without the app event loop; close each group explicitly.
+            // The document opens a group only when an operation actually changes content.
             undo.groupsByEvent = false
             func edit(_ name: String, operation: () throws -> Void) {
-                undo.beginUndoGrouping()
                 document.edit(name, operation: operation)
-                undo.endUndoGrouping()
             }
             let original = try document.data(ofType: "com.adobe.pdf")
             try check(!document.isDocumentEdited && original == originalBytes, "opened document is clean and preserves unchanged bytes")
             edit("No Change") {}
-            try check(!document.isDocumentEdited && !undo.canUndo, "no-op edit stays clean without undo history")
+            try check(!document.isDocumentEdited, "no-op edit stays clean")
+            try check(!undo.canUndo, "no-op edit creates no undo history")
             edit("Same Form Value") { try document.model.fill(document.model.widgets(on: 0)[0], text: "Renée Example") }
             edit("No Rotation") { try document.model.rotate(IndexSet(integer: 0), by: 360) }
             edit("No Move") { try document.model.move(IndexSet(integer: 0), by: 0) }

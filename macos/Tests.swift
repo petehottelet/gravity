@@ -71,6 +71,11 @@ enum MacTests {
             try check(!document.isDocumentEdited && original == originalBytes, "opened document is clean and preserves unchanged bytes")
             edit("No Change") {}
             try check(!document.isDocumentEdited && !undo.canUndo, "no-op edit stays clean without undo history")
+            edit("Same Form Value") { try document.model.fill(document.model.widgets(on: 0)[0], text: "Renée Example") }
+            edit("No Rotation") { try document.model.rotate(IndexSet(integer: 0), by: 360) }
+            edit("No Move") { try document.model.move(IndexSet(integer: 0), by: 0) }
+            edit("Empty Deletion") { try document.model.delete(IndexSet()) }
+            try check(!document.isDocumentEdited && !undo.canUndo, "unchanged form and page operations do not create edits")
             edit("Fill Form") { try document.model.fill(document.model.widgets(on: 0)[0], text: "Undo test") }
             try check(document.isDocumentEdited, "form edit marks document modified")
             undo.undo()

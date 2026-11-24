@@ -17,6 +17,8 @@ enum PDFError: LocalizedError {
 
 final class PDFModel {
     private(set) var pdf: PDFDocument
+    // PDFKit can serialize unchanged content to different bytes. Track actual edits instead.
+    private(set) var revision: UInt64 = 0
 
     init(data: Data, password: String? = nil) throws {
         guard let document = PDFDocument(data: data) else { throw PDFError.invalid }
@@ -47,18 +49,26 @@ final class PDFModel {
         try requirePageEditing()
         for index in indices {
             guard let page = pdf.page(at: index) else { continue }
-            page.rotation = (page.rotation + degrees + 360) % 360
+            let rotation = ((page.rotation + degrees) % 360 + 360) % 360
+            if page.rotation != rotation {
+                page.rotation = rotation
+                revision &+= 1
+            }
         }
     }
 
     func delete(_ indices: IndexSet) throws {
         try requirePageEditing()
+        guard !indices.isEmpty else { return }
+        guard indices.allSatisfy({ $0 >= 0 && $0 < pdf.pageCount }) else { throw PDFError.invalid }
         guard indices.count < pdf.pageCount else { throw PDFError.lastPage }
         for index in indices.reversed() { pdf.removePage(at: index) }
+        revision &+= 1
     }
 
     func move(_ indices: IndexSet, by offset: Int) throws {
         try requirePageEditing()
+        guard offset != 0 else { return }
         guard let first = indices.first, let last = indices.last,
               first + offset >= 0, last + offset < pdf.pageCount else { return }
         let order = offset > 0 ? Array(indices.reversed()) : Array(indices)
@@ -67,6 +77,7 @@ final class PDFModel {
             pdf.removePage(at: index)
             pdf.insert(page, at: index + offset)
         }
+        revision &+= 1
     }
 
     func extract(_ indices: IndexSet) throws -> Data {
@@ -82,12 +93,14 @@ final class PDFModel {
 
     func insert(_ data: Data, at index: Int) throws {
         try requirePageEditing()
+        guard index >= 0 && index <= pdf.pageCount else { throw PDFError.invalid }
         let source = try PDFModel(data: data)
         guard source.pdf.allowsCopying else { throw PDFError.readOnly }
         for offset in 0..<source.pdf.pageCount {
             guard let page = source.pdf.page(at: offset)?.copy() as? PDFPage else { throw PDFError.invalid }
             pdf.insert(page, at: index + offset)
         }
+        revision &+= 1
     }
 
     static func isWidget(_ annotation: PDFAnnotation) -> Bool {
@@ -110,13 +123,20 @@ final class PDFModel {
             if field.widgetFieldType == .text && field.maximumLength > 0 && value.count > field.maximumLength {
                 throw NSError(domain: "Gravity", code: 1, userInfo: [NSLocalizedDescriptionKey: "This field allows at most \(field.maximumLength) characters."])
             }
-            for peer in peers { peer.widgetStringValue = value }
+            for peer in peers where (peer.widgetStringValue ?? "") != value {
+                peer.widgetStringValue = value
+                revision &+= 1
+            }
         case .button:
             guard field.widgetControlType != .pushButtonControl else { throw PDFError.unsupported }
             let on = checked ?? false
             for peer in peers {
                 let isOn = field.widgetControlType == .radioButtonControl ? on && peer === field : on
-                peer.buttonWidgetState = isOn ? .onState : .offState
+                let state: PDFWidgetCellState = isOn ? .onState : .offState
+                if peer.buttonWidgetState != state {
+                    peer.buttonWidgetState = state
+                    revision &+= 1
+                }
             }
         default: throw PDFError.unsupported
         }

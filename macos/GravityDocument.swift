@@ -47,15 +47,16 @@ final class GravityDocument: NSDocument {
 
     func edit(_ name: String, operation: () throws -> Void) {
         do {
-            let before = try model.data()
-            let snapshot = preservedData ?? before
+            let beforeModel = model
+            let beforeRevision = model.revision
+            let snapshot = try preservedData ?? model.data()
             do { try operation() }
             catch {
                 model = try PDFModel(data: snapshot, password: password)
                 refresh()
                 throw error
             }
-            if try model.data() == before { return }
+            if model === beforeModel && model.revision == beforeRevision { return }
             preservedData = nil
             // NSDocument tracks change counts from its undo manager's groups.
             undoManager?.registerUndo(withTarget: self) { $0.restore(snapshot, name: name) }

@@ -90,8 +90,13 @@ final class PDFModel {
         }
     }
 
+    static func isWidget(_ annotation: PDFAnnotation) -> Bool {
+        // PDFAnnotation.type omits the PDF name's leading slash, unlike subtype raw values.
+        return annotation.type?.trimmingCharacters(in: CharacterSet(charactersIn: "/")) == "Widget"
+    }
+
     func widgets(on page: Int) -> [PDFAnnotation] {
-        return pdf.page(at: page)?.annotations.filter { $0.type == PDFAnnotationSubtype.widget.rawValue && $0.shouldDisplay } ?? []
+        return pdf.page(at: page)?.annotations.filter { Self.isWidget($0) && $0.shouldDisplay } ?? []
     }
 
     func fill(_ field: PDFAnnotation, text: String? = nil, checked: Bool? = nil) throws {

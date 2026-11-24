@@ -24,8 +24,19 @@ enum MacTests {
             checkBox.fieldName = "Agree"
             checkBox.buttonWidgetState = .offState
             page.addAnnotation(checkBox)
+            let note = PDFAnnotation(bounds: CGRect(x: 350, y: 700, width: 24, height: 24), forType: .text, withProperties: nil)
+            page.addAnnotation(note)
+            let hidden = PDFAnnotation(bounds: CGRect(x: 350, y: 650, width: 24, height: 24), forType: .widget, withProperties: nil)
+            hidden.widgetFieldType = .text
+            hidden.fieldName = "Hidden"
+            hidden.shouldDisplay = false
+            page.addAnnotation(hidden)
+            try check(model.widgets(on: 0).count == 2 && PDFModel.isWidget(text) && !PDFModel.isWidget(note),
+                      "visible widget discovery excludes notes and hidden fields")
             try model.fill(text, text: "Renée Example")
             try model.fill(checkBox, checked: true)
+            try check(text.widgetStringValue == "Renée Example" && checkBox.buttonWidgetState == .onState,
+                      "form editing updates both field values in memory")
             let reopened = try PDFModel(data: model.data())
             try check(reopened.widgets(on: 0).first { $0.fieldName == "Name" }?.widgetStringValue == "Renée Example", "text survives serialization")
             try check(reopened.widgets(on: 0).first { $0.fieldName == "Agree" }?.buttonWidgetState == .onState, "checkbox survives serialization")

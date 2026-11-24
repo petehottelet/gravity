@@ -167,7 +167,7 @@ The native app includes document windows and macOS tabs, scrolling and zooming, 
 
 Use `Command+O/S/P` for open/save/print, `Command+Shift+S` for Save As, `Command+F` to find, and `Command+Shift+F` to fill forms. Page cut/copy/paste uses `Command+Shift+X/C/V`; ordinary `Command+C` copies selected text. Select pages with Command-click or Shift-click.
 
-The macOS implementation is new and still needs a build and runtime check on a Mac. It does not yet include Windows' bookmark sidebar, presentation mode, file watching, remembered reading positions, drag reordering, or form lists with multiple selections.
+The macOS app does not yet include Windows' bookmark sidebar, presentation mode, file watching, remembered reading positions, drag reordering, or form lists with multiple selections.
 
 ```sh
 bash build-macos.sh --test --package

@@ -81,7 +81,7 @@ def glyph(mark: Image.Image, width: int, target_px: float) -> Image.Image:
     stroke_at_target = STROKE_FRACTION * target_px
     if stroke_at_target < MIN_STROKE_PX:
         grow = (MIN_STROKE_PX - stroke_at_target) * width / target_px
-        k = int(round(grow)) | 1
+        k = round(grow) | 1
         if k >= 3:
             alpha = alpha.filter(ImageFilter.MaxFilter(k))
     # Rebuild as solid white so no transparent-pixel color (resampling leaves black there)
@@ -201,7 +201,7 @@ def write_ico(path: Path, frames: list[Image.Image]) -> None:
     for blob in blobs:
         out += blob
     path.write_bytes(bytes(out))
-    print("wrote", path.relative_to(ROOT), "(%d sizes)" % len(frames))
+    print("wrote", path.relative_to(ROOT), f"({len(frames)} sizes)")
 
 
 def find_font(file_name: str) -> Path:

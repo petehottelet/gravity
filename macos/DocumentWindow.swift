@@ -9,7 +9,7 @@ final class FormPDFView: PDFView {
         let point = convert(event.locationInWindow, from: nil)
         if let page = page(for: point, nearest: false),
            let field = page.annotation(at: convert(point, to: page)),
-           field.type == PDFAnnotationSubtype.widget.rawValue {
+           PDFModel.isWidget(field) {
             editField?(field)
             return
         }

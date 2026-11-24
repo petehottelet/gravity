@@ -162,6 +162,16 @@ namespace Gravity.Tests
             Key(Keys.Alt | Keys.Right);
             Check(view.CurrentPage == 1, "Alt+Right goes forward");
 
+            // When both pages fit onscreen, the top edge can still be over page 1
+            // after navigating to page 2. History must preserve the selected page.
+            view.SetZoom(0.25);
+            view.GoToPage(0, false);
+            view.GoToPage(1);
+            view.GoBack();
+            Check(view.CurrentPage == 0, "zoomed-out history goes back to the source page");
+            view.GoForward();
+            Check(view.CurrentPage == 1, "zoomed-out history restores the destination page");
+
             // ---- text selection by dragging (page 2 text "Page two target" at y=400)
             Key(Keys.Control | Keys.D0);
             Key(Keys.End);

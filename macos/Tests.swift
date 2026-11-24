@@ -68,6 +68,8 @@ enum MacTests {
             document.undoManager?.redo()
             try check(document.model.widgets(on: 0)[0].widgetStringValue == "Undo test", "redo restores edit")
             document.makeWindowControllers()
+            try check(document.windowControllers.count == 1, "document retains its window controller")
+            try check(document.windowControllers.first?.document === document, "window controller belongs to the document")
             try check(document.windowControllers.first?.window != nil, "native window is constructed")
             document.windowControllers.forEach { $0.close() }
             print("All \(count) macOS checks passed.")

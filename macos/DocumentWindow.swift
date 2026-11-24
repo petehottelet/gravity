@@ -43,18 +43,18 @@ final class DocumentWindow: NSWindowController, NSTableViewDataSource, NSTableVi
     private let pageLabel = NSTextField(labelWithString: "")
     private var pageObserver: NSObjectProtocol?
     private var updating = false
-    private var gravity: GravityDocument { document as! GravityDocument }
+    private unowned let gravity: GravityDocument
     private var model: PDFModel { gravity.model }
     private static var pageClipboard: Data?
 
     init(document: GravityDocument) {
+        gravity = document
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1100, height: 780),
                               styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         window.minSize = NSSize(width: 900, height: 480)
         window.tabbingMode = .preferred
         window.center()
         super.init(window: window)
-        self.document = document
         shouldCascadeWindows = true
         window.setFrameAutosaveName("GravityDocument")
 

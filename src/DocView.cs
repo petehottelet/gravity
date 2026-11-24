@@ -425,8 +425,10 @@ namespace Gravity
 
         private KeyValuePair<int, double> CurrentLocation()
         {
-            var a = CaptureAnchor(new Point(ClientSize.Width / 2, EdgePad));
-            return new KeyValuePair<int, double>(a.Valid ? a.Page : currentPage, a.Valid ? Math.Max(0, a.V) : 0);
+            // The viewport's top edge may belong to a different page when several
+            // pages fit onscreen. Keep the page selected by navigation or scrolling.
+            var state = GetState();
+            return new KeyValuePair<int, double>(state.Page, state.PageV);
         }
 
         private void PushHistory()

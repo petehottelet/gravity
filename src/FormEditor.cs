@@ -6,53 +6,49 @@ using System.Windows.Forms;
 
 namespace Gravity
 {
-    internal sealed class FormEditor : Form
+    internal sealed class FormEditor : GravityDialog
     {
         private readonly List<Func<PdfFormEdit>> readers = new List<Func<PdfFormEdit>>();
         public List<PdfFormEdit> Edits { get { return readers.Select(r => r()).Where(e => e != null).ToList(); } }
 
         public FormEditor(IList<PdfFormField> fields, int page, int selected)
+            : base("Fill form — page " + (page + 1), 520, 480)
         {
-            Text = "Fill form — page " + (page + 1);
-            Font = new Font("Segoe UI", 9f);
-            AutoScaleMode = AutoScaleMode.Dpi;
-            AutoScaleDimensions = new SizeF(96, 96);
-            ClientSize = new Size(520, 480);
-            MinimumSize = new Size(400, 320);
-            StartPosition = FormStartPosition.CenterParent;
-            MinimizeBox = MaximizeBox = false;
-            ShowInTaskbar = false;
+            FormBorderStyle = FormBorderStyle.Sizable;
+            MinimumSize = new Size(400, 360);
 
-            var body = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(18) };
-            var rows = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 1, Padding = new Padding(0, 0, 18, 0) };
+            var body = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(24, 0, 24, 20), TabIndex = 0 };
+            var rows = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 1, Padding = new Padding(0, 0, 0, 8) };
             rows.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             body.Controls.Add(rows);
-            var hint = new Label { Dock = DockStyle.Top, Height = 48, Padding = new Padding(18, 12, 18, 0), Text = "Fill the fields on this page, then apply your changes. Save the PDF to keep them." };
-            var footer = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 54, Padding = new Padding(12), FlowDirection = FlowDirection.RightToLeft };
-            var cancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, AutoSize = true };
-            var apply = new Button { Text = "Apply", DialogResult = DialogResult.OK, AutoSize = true };
+            var hint = new Label { Dock = DockStyle.Top, Height = 68, Padding = new Padding(24, 18, 24, 0), ForeColor = Theme.SubtleText,
+                Text = "Fill the fields on this page, then apply your changes. Save the PDF to keep them." };
+            var footer = new DialogFooter { TabIndex = 1 };
+            var cancel = new DialogButton { Text = "Cancel", DialogResult = DialogResult.Cancel, TabIndex = 1 };
+            var apply = new DialogButton { Text = "Apply", DialogResult = DialogResult.OK, TabIndex = 0 };
             footer.Controls.AddRange(new Control[] { cancel, apply });
-            Controls.Add(body); Controls.Add(hint); Controls.Add(footer);
+            Content.Controls.Add(body); Content.Controls.Add(hint); Content.Controls.Add(footer);
             AcceptButton = apply; CancelButton = cancel;
             Control focus = null;
+            var editors = new List<Control>();
             var radioGroups = new Dictionary<string, List<RadioButton>>();
             foreach (var field in fields)
             {
                 var f = field;
                 string label = f.Label + (f.ReadOnly ? " (read only)" : "") + ((f.Flags & 2) != 0 ? " (required)" : "");
-                rows.Controls.Add(new Label { Text = label, AutoSize = true, Margin = new Padding(0, 12, 0, 5), UseMnemonic = false });
+                rows.Controls.Add(new Label { Text = label, AutoSize = true, Margin = new Padding(0, 12, 0, 6), UseMnemonic = false });
                 Control control;
                 if (f.Type == 2 || f.Type == 3)
                 {
                     if (f.Type == 2)
                     {
-                        var box = new CheckBox { Text = "Checked", Checked = f.Checked, AutoSize = true };
+                        var box = new CheckBox { Text = "Checked", Checked = f.Checked, AutoSize = true, MinimumSize = new Size(0, 28), FlatStyle = FlatStyle.Flat };
                         control = box;
                         readers.Add(() => box.Checked == f.Checked ? null : new PdfFormEdit { Index = f.Index, Checked = box.Checked });
                     }
                     else
                     {
-                        var radio = new RadioButton { Text = string.IsNullOrEmpty(f.ExportValue) ? "Select" : f.ExportValue, Checked = f.Checked, AutoSize = true, AutoCheck = false };
+                        var radio = new RadioButton { Text = string.IsNullOrEmpty(f.ExportValue) ? "Select" : f.ExportValue, Checked = f.Checked, AutoSize = true, AutoCheck = false, MinimumSize = new Size(0, 28), FlatStyle = FlatStyle.Flat };
                         control = radio;
                         List<RadioButton> group;
                         if (!radioGroups.TryGetValue(f.Name, out group)) radioGroups[f.Name] = group = new List<RadioButton>();
@@ -91,12 +87,31 @@ namespace Gravity
                 control.Enabled = f.Supported && !f.ReadOnly;
                 control.AccessibleName = label;
                 control.Dock = DockStyle.Top;
-                control.Margin = new Padding(0, 0, 0, 4);
+                control.Margin = new Padding(0, 0, 0, 8);
+                control.TabIndex = rows.Controls.Count;
                 rows.Controls.Add(control);
+                editors.Add(control);
+                control.Enter += delegate { body.ScrollControlIntoView(control.Parent is DialogField ? control.Parent : control); };
                 if (control.Enabled && (focus == null || f.Index == selected)) focus = control;
             }
+            rows.Layout += delegate
+            {
+                int width = Math.Max(1, rows.ClientSize.Width - rows.Padding.Horizontal);
+                foreach (var label in rows.Controls.OfType<Label>())
+                    if (label.MaximumSize.Width != width) label.MaximumSize = new Size(width, 0);
+            };
             apply.Enabled = fields.Any(f => f.Supported && !f.ReadOnly);
             Shown += delegate { if (focus != null) { body.ScrollControlIntoView(focus); focus.Focus(); } };
+            body.Resize += delegate
+            {
+                if (!IsHandleCreated || !body.ContainsFocus) return;
+                BeginInvoke((Action)delegate
+                {
+                    if (IsDisposed) return;
+                    var active = editors.FirstOrDefault(editor => editor.ContainsFocus);
+                    if (active != null) body.ScrollControlIntoView(active.Parent is DialogField ? active.Parent : active);
+                });
+            };
         }
     }
 }

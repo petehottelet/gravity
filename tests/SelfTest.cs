@@ -51,7 +51,7 @@ namespace Gravity.Tests
             if (!args.Contains("--no-ui"))
             {
                 Console.WriteLine("-- user interface (real window, synthetic mouse and keyboard messages)");
-                try { UiTest.Run(dir); FormTests.RunUI(dir); FeatureTests.RunUI(dir); }
+                try { UiTest.Run(dir); FormTests.RunUI(dir); FeatureTests.RunUI(dir); DialogTests.Run(); }
                 catch (Exception ex) { Fail("UI test threw " + ex); }
             }
             Console.WriteLine();

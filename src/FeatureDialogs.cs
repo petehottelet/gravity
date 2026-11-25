@@ -10,32 +10,39 @@ using System.Windows.Forms;
 
 namespace Gravity
 {
-    internal class FeatureDialog : Form
+    internal class FeatureDialog : GravityDialog
     {
-        protected FeatureDialog(string title, int width, int height)
+        protected readonly Panel Body;
+        protected FeatureDialog(string title, int width, int height) : base(title, width, height + 28)
         {
-            Text = title;
-            Font = new Font("Segoe UI", 9f);
-            AutoScaleMode = AutoScaleMode.Dpi;
-            AutoScaleDimensions = new SizeF(96, 96);
-            ClientSize = new Size(width, height);
-            StartPosition = FormStartPosition.CenterParent;
-            FormBorderStyle = FormBorderStyle.FixedDialog;
-            MinimizeBox = MaximizeBox = ShowInTaskbar = false;
+            Body = new Panel { Dock = DockStyle.Fill, AutoScroll = true, TabIndex = 0 };
+            Content.Controls.Add(Body);
+        }
+
+        protected DialogFooter AddFooter(params Button[] buttons)
+        {
+            var accept = AcceptButton;
+            var cancel = CancelButton;
+            var footer = new DialogFooter { TabIndex = 100 };
+            foreach (var button in buttons) footer.Controls.Add(button);
+            Content.Controls.Add(footer);
+            AcceptButton = accept;
+            CancelButton = cancel;
+            return footer;
         }
 
         protected Label LabelAt(string text, int x, int y, int width, int height = 24)
         {
             var label = new Label { Text = text, Left = x, Top = y, Width = width, Height = height };
-            Controls.Add(label);
+            Body.Controls.Add(label);
             return label;
         }
 
         protected Button ButtonAt(string text, int x, int y, int width, Action action)
         {
-            var button = new Button { Text = text, Left = x, Top = y, Width = width, Height = 28 };
+            var button = new DialogButton { Text = text, Left = x, Top = y, Width = width };
             button.Click += delegate { action(); };
-            Controls.Add(button);
+            Body.Controls.Add(button);
             return button;
         }
     }
@@ -82,14 +89,17 @@ namespace Gravity
             this.commands = commands;
             LabelAt("Search commands", 16, 12, 480);
             query = new TextBox { Left = 16, Top = 36, Width = 588, AccessibleName = "Search commands" };
-            list = new ListView { Left = 16, Top = 72, Width = 588, Height = 278, View = View.Details,
+            list = new ListView { Left = 16, Top = 84, Width = 588, Height = 266, View = View.Details,
                 FullRowSelect = true, HideSelection = false, MultiSelect = false, HeaderStyle = ColumnHeaderStyle.Nonclickable,
                 AccessibleName = "Commands" };
             list.Columns.Add("Command", 425); list.Columns.Add("Shortcut", 135);
             status = LabelAt("Enter to run · Escape to close", 16, 365, 410, 36);
             var close = ButtonAt("Close", 516, 366, 88, () => Close());
             close.DialogResult = DialogResult.Cancel; CancelButton = close;
-            Controls.AddRange(new Control[] { query, list });
+            var footer = AddFooter(close);
+            status.TextAlign = ContentAlignment.MiddleLeft;
+            footer.Controls.Add(status);
+            Body.Controls.AddRange(new Control[] { query, list });
             query.TextChanged += delegate { RefreshCommands(); };
             query.KeyDown += (s, e) =>
             {
@@ -145,9 +155,10 @@ namespace Gravity
         {
             status = LabelAt("Starting…", 16, 16, 408, 38);
             progress = new ProgressBar { Left = 16, Top = 60, Width = 408, Height = 16 };
-            Controls.Add(progress);
+            Body.Controls.Add(progress);
             cancel = ButtonAt("Cancel", 336, 100, 88, CancelWork);
             CancelButton = cancel;
+            AddFooter(cancel);
             FormClosing += (s, e) => { if (!finished) { e.Cancel = true; CancelWork(); } };
             Shown += delegate
             {
@@ -210,7 +221,7 @@ namespace Gravity
             scope.SelectedIndex = 0;
             LabelAt("Range", 16, 58, 100);
             range = new TextBox { Left = 128, Top = 54, Width = 310, Text = "1-" + count, Enabled = false, AccessibleName = "Page range" };
-            LabelAt("Example: 1, 3-5, 8", 128, 82, 310);
+            LabelAt("Example: 1, 3-5, 8", 128, 92, 310);
             LabelAt("Format", 16, 120, 100);
             format = new ComboBox { Left = 128, Top = 116, Width = 310, DropDownStyle = ComboBoxStyle.DropDownList, AccessibleName = "Export format" };
             format.Items.AddRange(new object[] { "PNG image", "JPEG image", "Plain text (UTF-8)" }); format.SelectedIndex = 0;
@@ -222,7 +233,8 @@ namespace Gravity
             var export = ButtonAt("Export…", 254, 276, 88, Accept);
             var cancel = ButtonAt("Cancel", 350, 276, 88, () => Close()); cancel.DialogResult = DialogResult.Cancel;
             AcceptButton = export; CancelButton = cancel;
-            Controls.AddRange(new Control[] { scope, range, format, resolution });
+            AddFooter(cancel, export);
+            Body.Controls.AddRange(new Control[] { scope, range, format, resolution });
             scope.SelectedIndexChanged += delegate { range.Enabled = scope.SelectedIndex == 3; error.Text = ""; };
             format.SelectedIndexChanged += delegate
             {
@@ -261,7 +273,7 @@ namespace Gravity
             LabelAt("One image per page, in the order below. Add or drop PNG, JPEG, or BMP files.", 16, 14, 568, 34);
             list = new ListBox { Left = 16, Top = 50, Width = 448, Height = 224, IntegralHeight = false,
                 SelectionMode = SelectionMode.MultiExtended, HorizontalScrollbar = true, AllowDrop = true, AccessibleName = "Images in page order" };
-            Controls.Add(list);
+            Body.Controls.Add(list);
             ButtonAt("Add…", 476, 50, 108, () =>
             {
                 using (var dialog = new OpenFileDialog { Filter = ImageImport.Filter, Multiselect = true, Title = "Add images" })
@@ -292,7 +304,8 @@ namespace Gravity
             accept = ButtonAt(insert ? "Insert pages" : "Create PDF", 376, 424, 100, () => { DialogResult = DialogResult.OK; Close(); });
             var cancel = ButtonAt("Cancel", 484, 424, 100, () => Close()); cancel.DialogResult = DialogResult.Cancel;
             AcceptButton = accept; CancelButton = cancel;
-            Controls.AddRange(new Control[] { size, margin, landscape });
+            AddFooter(cancel, accept);
+            Body.Controls.AddRange(new Control[] { size, margin, landscape });
             size.SelectedIndexChanged += delegate { landscape.Enabled = size.SelectedIndex != 0; };
             AddFiles(initial ?? Enumerable.Empty<string>());
         }

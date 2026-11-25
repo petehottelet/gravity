@@ -27,7 +27,7 @@ namespace Gravity
         public int PagePanelWidth = 240;
         public Rectangle WindowBounds = Rectangle.Empty;
         public bool Maximized;
-        public int ThumbSize = 160;
+        public int ThumbSize = 168;
         public bool MatchCase;
         public ZoomMode DefaultZoom = ZoomMode.FitPage;
 

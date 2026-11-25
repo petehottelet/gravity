@@ -152,6 +152,7 @@ namespace Gravity.Tests
             using (var appIcon = Brand.AppIcon())
                 Check(appIcon != null && appIcon.Width > 0, "embedded app icon loads");
             Check(Brand.Lockup != null && Brand.Lockup.Width > Brand.Lockup.Height * 3, "embedded logo lockup loads");
+            Check(Brand.Mark != null && Brand.Mark.Width > 0, "approved G artwork is embedded in the application");
             Check(active() == tabs[2] && view.Visible && view.PageCount == 2, "last file is active in the reading view");
             var readButton = Field<ToolStripButton>(form, "bRead");
             var organizeButton = Field<ToolStripButton>(form, "bOrganize");
@@ -162,7 +163,47 @@ namespace Gravity.Tests
             Check(!active().Organize && readButton.Checked && !organizeButton.Checked,
                 "Read segment restores the document and stays selected");
             var modeTools = Field<ToolStrip>(form, "modeTools");
+            using (var modeImage = new Bitmap(modeTools.Width, modeTools.Height))
+            {
+                modeTools.DrawToBitmap(modeImage, modeTools.ClientRectangle);
+                Check(modeImage.GetPixel(readButton.Bounds.Left + 10, readButton.Bounds.Top + 10).ToArgb() == Color.White.ToArgb(),
+                    "selected mode renders white inside the rounded gray track");
+            }
+            var pageField = Field<PageNumberField>(form, "pageBox");
+            Check(pageField.Height >= 32 && pageField.Editor.BorderStyle == BorderStyle.None && pageField.Editor.AccessibleName == "Page number",
+                "page navigation uses the full-height rounded field with an accessible native editor");
+            pageField.Text = "2"; Call(pageField, "OnKeyDown", new KeyEventArgs(Keys.Enter));
+            Check(view.CurrentPage == 1, "rounded page field still navigates when Enter is pressed");
+            view.GoToPage(0, false);
+            var header = Field<DocumentHeader>(form, "shellHeader");
+            Check(header.DocumentTitle == active().Doc.DisplayName && header.DocumentState.Contains("2 pages"),
+                "centered document identity reflects the active document and real page count");
+            var headerMenu = Field<ToolStripButton>(form, "bMenu");
+            Check(headerMenu.Placement == ToolStripItemPlacement.Main && headerMenu.Owner.ClientRectangle.Contains(headerMenu.Bounds),
+                "application menus remain visible in the header without an overflow stub");
+            headerMenu.PerformClick(); Pump(30);
+            Check(header.Top == 0 && Field<MenuStrip>(form, "menu").Top >= header.Bottom,
+                "revealing application menus keeps the window caption controls at the top edge");
+            headerMenu.PerformClick();
+            WindowChromeTests();
+            CapturePanel("nested-outline-and-tabs");
+            var paper = Field<Rectangle[]>(view, "rects")[0];
+            Check(paper.Top >= 22 && paper.Bottom < view.ClientSize.Height - 20, "Fit page retains breathing room above and below the paper");
             var commands = Field<ToolStrip>(form, "toolbar");
+            using (var buttonImage = new Bitmap(commands.Width, commands.Height))
+            {
+                commands.DrawToBitmap(buttonImage, commands.ClientRectangle);
+                var save = Field<ToolStripButton>(form, "bSave").Bounds;
+                int left = save.Right, right = save.Left;
+                for (int y = save.Top + 10; y < save.Bottom - 10; y++)
+                    for (int x = save.Left + 5; x < save.Right - 5; x++)
+                    {
+                        var pixel = buttonImage.GetPixel(x, y);
+                        if (pixel.R < 100 && pixel.G < 115 && pixel.B < 135) { left = Math.Min(left, x); right = Math.Max(right, x); }
+                    }
+                Check(right > left && Math.Abs((left - save.Left) - (save.Right - 1 - right)) <= 3,
+                    "Save icon and label render as one optically centered group inside the button");
+            }
             form.Size = form.MinimumSize; Pump(50);
             Check(!modeTools.Bounds.IntersectsWith(commands.Bounds) && organizeButton.Bounds.Right <= modeTools.ClientSize.Width,
                 "both mode segments remain unobscured at minimum window size");
@@ -181,6 +222,11 @@ namespace Gravity.Tests
             Check(org.SelectedIndices().SequenceEqual(new[] { 0, 1 }) &&
                 (pagesAccess.GetChild(0).State & (AccessibleStates.Selected | AccessibleStates.Focused)) == (AccessibleStates.Selected | AccessibleStates.Focused),
                 "accessible page actions expose multi-selection and the distinct focused page");
+            var firstCell = (Rectangle)Call(org, "CellRect", 0);
+            var previewFrame = (Rectangle)Call(org, "PreviewRect", firstCell);
+            Check(previewFrame.Bottom + 24 < firstCell.Bottom && (string)Call(org, "PageTitle", 0) == "Chapter One",
+                "organizer selection ends above its caption and titles come from real bookmarks");
+            CapturePanel("organizer-multiple-selected");
             readButton.PerformClick();
             var tabsAccess = Field<TabStrip>(form, "tabStrip").AccessibilityObject;
             Check(tabsAccess.Role == AccessibleRole.PageTabList && tabsAccess.GetChildCount() == 4 &&
@@ -198,12 +244,27 @@ namespace Gravity.Tests
                 foreach (bool organize in new[] { false, true })
                 {
                     Call(form, "SetOrganize", organize); Pump(30);
-                    Check(overflow.Visible && overflow.Placement == ToolStripItemPlacement.Main &&
-                        Field<ToolStrip>(form, "contextTools").ClientRectangle.Contains(overflow.Bounds),
-                        "More is visibly placed in " + (organize ? "Organize" : "Read") + " at width " + shellWidth);
-                    Call(form, "PopulateContextMenu");
-                    Check(overflow.DropDownItems.OfType<ToolStripMenuItem>().Any(item => item.Text.Contains(organize ? "uplicate" : "Fit")),
-                        "More exposes the current mode's commands");
+                    var context = Field<ToolStrip>(form, "contextTools");
+                    if (organize)
+                    {
+                        Check(new[] { "bPRotR", "bDuplicate", "bDelete" }.All(name => {
+                            var item = Field<ToolStripButton>(form, name); return item.Visible && item.Placement == ToolStripItemPlacement.Main && context.ClientRectangle.Contains(item.Bounds);
+                        }), "primary organizer actions stay visible at width " + shellWidth);
+                        Check(shellWidth == 1200 ? !overflow.Visible : overflow.Visible && context.ClientRectangle.Contains(overflow.Bounds),
+                            "secondary organizer actions adapt without replacing primary commands at width " + shellWidth);
+                        Call(form, "PopulateContextMenu");
+                        Check(overflow.DropDownItems.OfType<ToolStripMenuItem>().Any(item => item.Text.Contains("uplicate")), "organizer menu retains page editing commands");
+                    }
+                    else
+                    {
+                        var zoom = Field<ToolStripDropDownButton>(form, "zoomChoice");
+                        Check(!overflow.Visible && new ToolStripItem[] { zoom, pageField, Field<ToolStripButton>(form, "bZoomIn"), Field<ToolStripButton>(form, "bZoomOut") }
+                            .All(item => item.Visible && item.Placement == ToolStripItemPlacement.Main && context.ClientRectangle.Contains(item.Bounds)),
+                            "page field and unboxed zoom controls fit without overflow at width " + shellWidth);
+                        zoom.DropDownItems.OfType<ToolStripMenuItem>().First(item => item.Text == "Fit width").PerformClick();
+                        Check(view.Mode == ZoomMode.FitWidth, "unboxed zoom selector applies Fit width");
+                        zoom.DropDownItems.OfType<ToolStripMenuItem>().First(item => item.Text == "Fit page").PerformClick();
+                    }
                 }
             }
             readButton.PerformClick(); Call(form, "FocusCanvas");
@@ -409,6 +470,16 @@ namespace Gravity.Tests
 
         private static void ScreenshotTest(string dir)
         {
+            using (var shadow = new Bitmap(260, 310))
+            using (var graphics = Graphics.FromImage(shadow))
+            {
+                graphics.Clear(Theme.ViewBack);
+                Theme.PaperShadow(graphics, new Rectangle(30, 30, 180, 230), 1);
+                var beside = shadow.GetPixel(29, 120); var below = shadow.GetPixel(120, 261);
+                int redDrop = Theme.ViewBack.R - beside.R, blueDrop = Theme.ViewBack.B - beside.B;
+                Check(redDrop > 4 && Math.Abs(redDrop - blueDrop) <= 4 && below.R < beside.R && shadow.GetPixel(14, 120).ToArgb() == Theme.ViewBack.ToArgb(),
+                    "paper shadow has neutral soft falloff and a downward offset without a tinted halo");
+            }
             using (var recentHome = new HomeView { Size = new Size(1000, 740) })
             using (var image = new Bitmap(1000, 740))
             {
@@ -424,6 +495,9 @@ namespace Gravity.Tests
             })
             {
                 snapshot.Show();
+                Pump(120);
+                Check(!Field<TabStrip>(snapshot, "tabStrip").Visible && Field<DocumentHeader>(snapshot, "shellHeader").DocumentTitle == "A.pdf",
+                    "single-document window uses centered identity without an extra tab row");
                 Check(PumpUntil(() => snapshot.IsDisposed, 18000) && File.Exists(capture),
                     "offscreen capture finishes without reading other desktop windows");
                 using (var image = new Bitmap(capture))
@@ -443,6 +517,7 @@ namespace Gravity.Tests
             form.Show();
             Pump(300);
             Key(Keys.Alt | Keys.D1);
+            CapturePanel("no-outline");
             var tabs = Field<List<DocTab>>(form, "tabs");
             var view = Field<DocView>(form, "view");
             var org = Field<OrganizerView>(form, "organizer");
@@ -456,6 +531,8 @@ namespace Gravity.Tests
                 "reader starts with the outline tab in the shared sidebar");
             Field<ToolStripButton>(form, "bPages").PerformClick();
             Check(panel.Visible && view.Visible && org.Visible && org.SidebarMode, "pages panel opens alongside the reader");
+            Check(panel.Controls.Cast<Control>().Where(control => control != Field<Panel>(form, "pageBody")).All(control => !control.Visible),
+                "Pages navigation rail contains no inherited editing strips or redundant selection labels");
             int openWidth = view.Width;
             Key(Keys.Control | Keys.Shift | Keys.E);
             Check(!panel.Visible && !sidebar.Visible && view.Width > openWidth, "collapsing pages returns space to the reader");
@@ -562,6 +639,7 @@ namespace Gravity.Tests
             while (tabs.Count > 0) Key(Keys.Control | Keys.W);
             Check(!panel.Visible && !rail.Visible && !view.Visible && Field<HomeView>(form, "home").Visible,
                 "closing the last document hides the panel and returns home");
+            CapturePanel("home-empty");
             form.Close();
             Pump(100);
         }
@@ -581,6 +659,42 @@ namespace Gravity.Tests
                 form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.Size));
                 bitmap.Save(Path.Combine(folder, name + ".png"), System.Drawing.Imaging.ImageFormat.Png);
             }
+        }
+
+        private static void WindowChromeTests()
+        {
+            var offscreenBounds = form.Bounds;
+            var workArea = Screen.FromControl(form).WorkingArea;
+            form.Location = new Point(workArea.Left + 80, workArea.Top + 80); Pump(30);
+            var min = Field<CaptionButton>(form, "minimizeWindow");
+            var max = Field<CaptionButton>(form, "maximizeWindow");
+            var close = Field<CaptionButton>(form, "closeWindow");
+            Func<Point, int> hit = point => SendMessage(form.Handle, 0x84, IntPtr.Zero, LParam(form.PointToScreen(point))).ToInt32();
+            Func<Control, Point> center = control => form.PointToClient(control.PointToScreen(new Point(control.Width / 2, control.Height / 2)));
+            Check(hit(center(min)) == 8 && hit(center(max)) == 9 && hit(center(close)) == 20,
+                "flat caption controls expose native minimize, Snap maximize and close hit targets");
+            Check(hit(new Point(1, 1)) == 13 && hit(new Point(form.ClientSize.Width - 1, form.ClientSize.Height - 1)) == 17 && hit(new Point(200, 20)) == 2,
+                "custom header preserves native corner resizing and caption dragging");
+            Check(max.AccessibilityObject.Role == AccessibleRole.PushButton && close.AccessibilityObject.Name == "Close",
+                "flat caption controls are named native accessible buttons");
+            var bounds = form.Bounds;
+            max.AccessibilityObject.DoDefaultAction(); Pump(60);
+            Check(form.WindowState == FormWindowState.Maximized && max.AccessibleName == "Restore window" && form.Bounds == Screen.FromControl(form).WorkingArea,
+                "maximize fills the monitor work area and exposes Restore without covering the taskbar");
+            max.PerformClick(); Pump(60);
+            Check(form.WindowState == FormWindowState.Normal && form.Bounds == bounds, "Restore returns the previous window bounds");
+            SendMessage(form.Handle, 0xa3, (IntPtr)2, LParam(form.PointToScreen(new Point(200, 20)))); Pump(60);
+            Check(form.WindowState == FormWindowState.Maximized, "double-clicking the clean header maximizes through Windows");
+            max.PerformClick(); Pump(60);
+            min.PerformClick(); Pump(60);
+            Check(form.WindowState == FormWindowState.Minimized, "flat Minimize control minimizes the actual window");
+            SendMessage(form.Handle, 0x112, (IntPtr)0xf120, IntPtr.Zero); Pump(60);
+            Check(form.WindowState == FormWindowState.Normal && form.Bounds == bounds, "restoring a minimized window preserves its exact size and position");
+            bool requestedClose = false;
+            FormClosingEventHandler cancel = (sender, e) => { requestedClose = true; e.Cancel = true; };
+            form.FormClosing += cancel; close.PerformClick(); form.FormClosing -= cancel;
+            Check(requestedClose && !form.IsDisposed, "flat Close uses the normal cancellable close path and preserves unsaved-document checks");
+            form.Bounds = offscreenBounds; Pump(30);
         }
 
         private static void Eq(string expected, string actual, string what)

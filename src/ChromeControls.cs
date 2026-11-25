@@ -1,0 +1,118 @@
+using System;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Windows.Forms;
+
+namespace Gravity
+{
+    internal sealed class OutlineTreeView : TreeView
+    {
+        protected override CreateParams CreateParams
+        {
+            get { var parameters = base.CreateParams; parameters.Style |= 0x8000; return parameters; } // TVS_NOHSCROLL
+        }
+    }
+
+    internal sealed class SingleLineLabel : Label
+    {
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            TextRenderer.DrawText(e.Graphics, Text, Font, ClientRectangle, ForeColor,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+        }
+    }
+
+    internal sealed class DocumentHeader : Control
+    {
+        public string DocumentTitle = "", DocumentState = "";
+        public DocumentHeader()
+        {
+            SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
+            BackColor = Theme.Chrome; AccessibleRole = AccessibleRole.Grouping;
+        }
+        protected override void WndProc(ref Message m)
+        {
+            if (m.Msg == 0x84) { m.Result = (IntPtr)(-1); return; }
+            base.WndProc(ref m);
+        }
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            var g = e.Graphics; float scale = g.DpiX / 96f;
+            Func<float, int> s = value => (int)Math.Round(value * scale);
+            g.Clear(Theme.Chrome); g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            Theme.DrawTintedImage(g, Brand.Mark, new Rectangle(s(20), (Height - s(23)) / 2, s(23), s(23)), Theme.Text);
+            using (var brand = new Font("Segoe UI", 11.25f, FontStyle.Bold))
+                TextRenderer.DrawText(g, "Gravity", brand, new Rectangle(s(52), 0, s(100), Height), Theme.Text,
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+            int side = s(202), width = Math.Max(1, Width - side * 2);
+            using (var title = new Font("Segoe UI Semibold", 9.75f))
+            using (var subtitle = new Font("Segoe UI", 8.25f))
+            {
+                TextRenderer.DrawText(g, DocumentTitle, title, new Rectangle(side, Height / 2 - s(17), width, s(20)), Theme.Text,
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+                TextRenderer.DrawText(g, DocumentState, subtitle, new Rectangle(side, Height / 2 + s(3), width, s(17)), Theme.SubtleText,
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+            }
+        }
+    }
+
+    internal sealed class SegmentStrip : ToolStrip
+    {
+        protected override void OnPaintBackground(PaintEventArgs e)
+        {
+            e.Graphics.Clear(Theme.Chrome);
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            using (var path = Theme.RoundRect(new RectangleF(0, 0, Width - 1, Height - 1), 8 * e.Graphics.DpiX / 96f))
+            using (var brush = new SolidBrush(Color.FromArgb(0xE5, 0xE8, 0xED))) e.Graphics.FillPath(brush, path);
+        }
+    }
+
+    internal sealed class PageNumberField : ToolStripControlHost
+    {
+        private readonly PageInput input;
+        public PageNumberField() : base(new PageInput())
+        {
+            input = (PageInput)Control;
+            input.Editor.KeyDown += (s, e) => OnKeyDown(e);
+            input.Editor.LostFocus += (s, e) => OnLostFocus(e);
+            input.Editor.TextChanged += (s, e) => OnTextChanged(e);
+            AccessibleName = "Page number";
+        }
+        public new bool Focused { get { return input.Editor.Focused; } }
+        public new bool Focus() { return input.Editor.Focus(); }
+        public void SelectAll() { input.Editor.SelectAll(); }
+        public override string Text { get { return input == null ? "" : input.Editor.Text; } set { if (input != null) input.Editor.Text = value; } }
+        public TextBox Editor { get { return input.Editor; } }
+
+        private sealed class PageInput : UserControl
+        {
+            internal readonly TextBox Editor;
+            public PageInput()
+            {
+                SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
+                BackColor = Theme.Chrome;
+                Editor = new TextBox { BorderStyle = BorderStyle.None, TextAlign = HorizontalAlignment.Center,
+                    BackColor = Color.White, ForeColor = Theme.Text, AccessibleName = "Page number" };
+                Controls.Add(Editor);
+                Editor.GotFocus += delegate { Invalidate(); }; Editor.LostFocus += delegate { Invalidate(); };
+                Resize += delegate { LayoutEditor(); }; FontChanged += delegate { LayoutEditor(); };
+                Size = new Size(44, 32);
+            }
+            private void LayoutEditor()
+            {
+                if (Editor == null) return;
+                Editor.Font = Font;
+                Editor.Bounds = new Rectangle(7, Math.Max(2, (Height - Editor.PreferredHeight) / 2), Math.Max(1, Width - 14), Editor.PreferredHeight);
+            }
+            protected override void OnPaint(PaintEventArgs e)
+            {
+                e.Graphics.Clear(Theme.Chrome); e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                float scale = e.Graphics.DpiX / 96f;
+                using (var path = Theme.RoundRect(new RectangleF(1, 1, Width - 3, Height - 3), 5 * scale))
+                using (var fill = new SolidBrush(Color.White))
+                using (var stroke = new Pen(Editor.Focused ? Theme.Accent : Color.FromArgb(0x7C, 0x87, 0x95), Editor.Focused ? 2 : 1))
+                { e.Graphics.FillPath(fill, path); e.Graphics.DrawPath(stroke, path); }
+            }
+        }
+    }
+}

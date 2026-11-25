@@ -28,8 +28,9 @@ namespace Gravity
         private List<PageRef> pages = new List<PageRef>();
         private readonly HashSet<PageRef> selected = new HashSet<PageRef>(RefComparer<PageRef>.Instance);
         private int focus = -1, anchor = -1;
-        private int thumb = 160;   // box size in 96-dpi pixels
+        private int thumb = 168;   // preview height in 96-dpi pixels
         private bool sidebarMode;
+        private readonly Dictionary<PdfSource, Dictionary<int, string>> pageTitles = new Dictionary<PdfSource, Dictionary<int, string>>();
 
         public bool SidebarMode
         {
@@ -77,6 +78,7 @@ namespace Gravity
         {
             doc = d;
             pages = d != null ? d.Pages : new List<PageRef>();
+            pageTitles.Clear(); CachePageTitles();
             selected.Clear();
             focus = anchor = pages.Count > 0 ? Math.Max(0, Math.Min(pages.Count - 1, focusPage)) : -1;
             if (focus >= 0) selected.Add(pages[focus]);
@@ -92,6 +94,7 @@ namespace Gravity
         {
             if (doc == null) return;
             pages = doc.Pages;
+            CachePageTitles();
             var set = new HashSet<PageRef>(pages, RefComparer<PageRef>.Instance);
             var keep = (newSelection ?? selected.ToList()).Where(set.Contains).ToList();
             selected.Clear();
@@ -154,18 +157,48 @@ namespace Gravity
         // ---- layout -----------------------------------------------------------
 
         private int Pad { get { return S(10); } }
-        private int LabelH { get { return S(24); } }
-        private int Box { get { return sidebarMode ? Math.Max(S(48), Math.Min(S(thumb), ClientSize.Width - S(52))) : S(thumb); } }
+        private int LabelH { get { return S(sidebarMode ? 24 : 32); } }
+        private int PreviewWidth { get { return Math.Max(S(48), Math.Min(S(sidebarMode ? 125 : thumb * 150f / 168), ClientSize.Width - S(24))); } }
+        private int PreviewHeight { get { return S(sidebarMode ? 150 : thumb + 22); } }
+
+        private void CachePageTitles()
+        {
+            var sources = new HashSet<PdfSource>(pages.Where(p => p.Src != null).Select(p => p.Src));
+            foreach (var source in pageTitles.Keys.Where(source => !sources.Contains(source)).ToArray()) pageTitles.Remove(source);
+            foreach (var source in sources)
+            {
+                if (pageTitles.ContainsKey(source)) continue;
+                var titles = new Dictionary<int, string>();
+                lock (Pdfium.Lock) AddPageTitles(source.GetOutline(), titles);
+                pageTitles.Add(source, titles);
+            }
+        }
+
+        private static void AddPageTitles(IEnumerable<OutlineItem> items, Dictionary<int, string> titles)
+        {
+            foreach (var item in items)
+            {
+                if (item.PageIndex >= 0 && !string.IsNullOrWhiteSpace(item.Title) && !titles.ContainsKey(item.PageIndex)) titles.Add(item.PageIndex, item.Title);
+                AddPageTitles(item.Children, titles);
+            }
+        }
+
+        private string PageTitle(int index)
+        {
+            Dictionary<int, string> titles; string title; var page = pages[index];
+            return page.Src != null && pageTitles.TryGetValue(page.Src, out titles) && titles.TryGetValue(page.Index, out title) ? title : "Page " + (index + 1);
+        }
 
         private void DoLayout()
         {
             int cw = Math.Max(1, ClientSize.Width);
-            int margin = S(16);
-            cellW = Box + 2 * Pad;
-            cellH = Box + LabelH + 2 * Pad;
+            int margin = S(sidebarMode ? 12 : cw < S(650) ? 12 : 34);
+            cellW = PreviewWidth + S(22);
+            cellH = PreviewHeight + LabelH + S(sidebarMode ? 18 : 26);
             cols = sidebarMode ? 1 : Math.Max(1, (cw - 2 * margin) / cellW);
+            if (!sidebarMode) cellW = Math.Max(cellW, (cw - 2 * margin) / cols);
             gridLeft = Math.Max(margin, (cw - cols * cellW) / 2);
-            gridTop = margin;
+            gridTop = S(sidebarMode ? 12 : 26);
             int rowsN = (pages.Count + cols - 1) / cols;
             ContentW = cw;
             ContentH = gridTop * 2 + rowsN * cellH + S(40);
@@ -193,9 +226,15 @@ namespace Gravity
             var p = pages[i];
             double w = p.BaseWidth, h = p.BaseHeight;
             if ((p.Rotation & 1) == 1) { var t = w; w = h; h = t; }
-            double s = Math.Min(Box / w, Box / h);
+            var frame = PreviewRect(cell);
+            double s = Math.Min((frame.Width - S(22)) / w, (frame.Height - S(22)) / h);
             int tw = Math.Max(4, (int)Math.Floor(w * s)), th = Math.Max(4, (int)Math.Floor(h * s));
-            return new Rectangle(cell.X + (cellW - tw) / 2, cell.Y + Pad + (Box - th), tw, th);
+            return new Rectangle(frame.X + (frame.Width - tw) / 2, frame.Y + (frame.Height - th) / 2, tw, th);
+        }
+
+        private Rectangle PreviewRect(Rectangle cell)
+        {
+            return new Rectangle(cell.X + (cell.Width - PreviewWidth) / 2, cell.Y, PreviewWidth, PreviewHeight);
         }
 
         private int FirstVisibleIndex()
@@ -246,7 +285,7 @@ namespace Gravity
         protected override void OnPaint(PaintEventArgs e)
         {
             var g = e.Graphics;
-            g.Clear(Theme.ViewBack);
+            g.Clear(sidebarMode ? Theme.Chrome : Theme.ViewBack);
             if (doc == null) return;
             var want = new List<TileKey>();
             if (pages.Count == 0)
@@ -260,7 +299,9 @@ namespace Gravity
             g.PixelOffsetMode = PixelOffsetMode.Half;
             bool multiSource = pages.Any(p => p.Src != (doc.Base ?? pages[0].Src));
             using (var labelFont = new Font("Segoe UI", 9f))
-            using (var selBrush = new SolidBrush(Theme.AccentSoft))
+            using (var numberFont = new Font("Segoe UI Semibold", 9f))
+            using (var titleFont = new Font("Segoe UI", 8.25f))
+            using (var selBrush = new SolidBrush(Theme.ThumbnailSelection))
             using (var selPen = new Pen(Theme.Accent, Math.Max(1, S(2))))
             using (var borderPen = new Pen(Theme.PageBorder))
             using (var focusPen = new Pen(Theme.Accent) { DashStyle = DashStyle.Dot })
@@ -271,7 +312,7 @@ namespace Gravity
                     cell.Offset(0, -ScrollY);
                     var p = pages[i];
                     bool sel = selected.Contains(p);
-                    var inner = Rectangle.Inflate(cell, -S(3), -S(3));
+                    var inner = PreviewRect(cell);
                     if (sel)
                     {
                         g.SmoothingMode = SmoothingMode.AntiAlias;
@@ -288,8 +329,7 @@ namespace Gravity
                     }
                     var tr = ThumbRect(i, CellRect(i));
                     tr.Offset(0, -ScrollY);
-                    using (var border = new SolidBrush(Theme.PageBorder))
-                        g.FillRectangle(border, tr.X - 1, tr.Y - 1, tr.Width + 2, tr.Height + 2);
+                    Theme.PaperShadow(g, tr, Dpi / 96f, true);
                     g.FillRectangle(Brushes.White, tr);
                     if (p.Src != null && Renderer != null)
                     {
@@ -304,16 +344,26 @@ namespace Gravity
                     }
                     if (sel && !SidebarMode)
                     {
-                        var badge = new Rectangle(inner.Right - S(24), inner.Top + S(7), S(18), S(18));
+                        var badge = new Rectangle(inner.Right - S(23), inner.Top + S(3), S(20), S(20));
                         g.SmoothingMode = SmoothingMode.AntiAlias;
                         using (var brush = new SolidBrush(Theme.Accent)) g.FillEllipse(brush, badge);
                         LucideIcons.Draw(g, "check", Rectangle.Inflate(badge, -S(3), -S(3)), Color.White);
                         g.SmoothingMode = SmoothingMode.None;
                     }
-                    string label = "Page " + (i + 1);
-                    var lr = new Rectangle(cell.X, tr.Bottom + S(4), cell.Width, LabelH - S(4));
-                    TextRenderer.DrawText(g, label, labelFont, lr, sel ? Theme.Accent : Theme.Text,
-                        TextFormatFlags.HorizontalCenter | TextFormatFlags.Top | TextFormatFlags.EndEllipsis);
+                    var lr = new Rectangle(cell.X + S(3), inner.Bottom + S(8), cell.Width - S(6), LabelH);
+                    string title = PageTitle(i), number = (i + 1).ToString();
+                    if (sidebarMode || title == "Page " + number)
+                        TextRenderer.DrawText(g, "Page " + number, numberFont, lr, Theme.Text,
+                            TextFormatFlags.HorizontalCenter | TextFormatFlags.Top | TextFormatFlags.EndEllipsis);
+                    else
+                    {
+                        int nw = TextRenderer.MeasureText(g, number, numberFont).Width + S(3);
+                        int tw = Math.Min(lr.Width - nw, TextRenderer.MeasureText(g, title, titleFont).Width);
+                        int left = lr.X + (lr.Width - nw - tw) / 2;
+                        TextRenderer.DrawText(g, number, numberFont, new Rectangle(left, lr.Y, nw, lr.Height), Theme.Text, TextFormatFlags.Top);
+                        TextRenderer.DrawText(g, title, titleFont, new Rectangle(left + nw, lr.Y + S(1), tw, lr.Height), Theme.SubtleText,
+                            TextFormatFlags.Top | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+                    }
                     if (multiSource && p.Src != null && p.Src != doc.Base)
                     {
                         // A small dot marks pages that came from another file.

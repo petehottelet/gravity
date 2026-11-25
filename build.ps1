@@ -32,7 +32,7 @@ foreach ($asset in 'Gravity.ico', 'GravityPdf.ico') {
     if (-not (Test-Path (Join-Path $root "src\$asset"))) { throw "src\$asset is missing. Regenerate icons: python tools\make_brand.py" }
 }
 if (-not (Test-Path (Join-Path $root 'src\Lockup.png'))) { throw 'src\Lockup.png is missing. Restore the finished logo artwork from the repository.' }
-$resources = @("/resource:$root\src\Gravity.ico,Gravity.ico", "/resource:$root\src\Lockup.png,Lockup.png")
+$resources = @("/resource:$root\src\Gravity.ico,Gravity.ico", "/resource:$root\src\Lockup.png,Lockup.png", "/resource:$root\assets\g-mark.png,GMark.png")
 Get-ChildItem (Join-Path $root 'third_party\lucide\icons') -Filter *.svg | ForEach-Object {
     $resources += "/resource:$($_.FullName),Lucide.$($_.Name)"
 }

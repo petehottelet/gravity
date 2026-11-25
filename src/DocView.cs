@@ -188,8 +188,8 @@ namespace Gravity
 
         // ---- layout -----------------------------------------------------------
 
-        private int EdgePad { get { return presentation ? 0 : S(10); } }
-        private int Gap { get { return presentation ? 0 : S(10); } }
+        private int EdgePad { get { return presentation ? 0 : S(24); } }
+        private int Gap { get { return presentation ? 0 : S(40); } }
 
         private void PageSizePts(int i, out double w, out double h)
         {
@@ -739,15 +739,7 @@ namespace Gravity
             if (inClip)
             {
                 if (!presentation)
-                {
-                    using (var shadow = new SolidBrush(Color.FromArgb(28, 0, 0, 0)))
-                    {
-                        g.FillRectangle(shadow, rc.X + 1, rc.Bottom + 1, rc.Width + 1, 2);
-                        g.FillRectangle(shadow, rc.Right + 1, rc.Y + 1, 2, rc.Height + 2);
-                    }
-                    using (var border = new SolidBrush(Theme.PageBorder))
-                        g.FillRectangle(border, rc.X - 1, rc.Y - 1, rc.Width + 2, rc.Height + 2);
-                }
+                    Theme.PaperShadow(g, rc, g.DpiX / 96f);
                 g.FillRectangle(Brushes.White, rc);
             }
             if (p.Src != null)

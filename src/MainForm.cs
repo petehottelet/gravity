@@ -58,7 +58,8 @@ namespace Gravity
         private ToolStripButton bOpen, bSave, bPrint, bUndo, bRedo, bSidebar, bOrganize, bPrev, bNext, bZoomOut, bZoomIn, bRotL, bRotR,
             bCut, bCopy, bPaste, bDelete, bPRotL, bPRotR, bExtract, bFindPrev, bFindNext, bMatchCase;
         private ToolStripDropDownButton bInsert;
-        private ToolStripTextBox pageBox, findBox;
+        private PageNumberField pageBox;
+        private ToolStripTextBox findBox;
         private ToolStripLabel pageOf;
         private ToolStripComboBox zoomBox;
         private readonly List<ToolStripItem> docGroup = new List<ToolStripItem>();
@@ -154,7 +155,7 @@ namespace Gravity
                 ForeColor = Theme.SubtleText,
                 BackColor = Color.White,
             };
-            toc = new TreeView
+            toc = new OutlineTreeView
             {
                 Dock = DockStyle.Fill,
                 BorderStyle = BorderStyle.None,
@@ -172,7 +173,7 @@ namespace Gravity
             sidebar.Controls.Add(sideHeader);
             sidebar.Controls.Add(new Panel { Dock = DockStyle.Right, Width = 1, BackColor = Theme.ChromeBorder });
             toc.HandleCreated += delegate { SetWindowTheme(toc.Handle, "Explorer", null); };
-            splitter = new Splitter { Dock = DockStyle.Left, Width = S(4), BackColor = Theme.ViewBack, MinSize = S(120), MinExtra = S(200), Visible = false };
+            splitter = new Splitter { Dock = DockStyle.Left, Width = S(1), BackColor = Theme.ChromeBorder, MinSize = S(160), MinExtra = S(240), Visible = false };
             splitter.SplitterMoved += delegate { settings.SidebarWidth = (int)Math.Round(sidebar.Width * 96f / dpi); };
 
             BuildPagePanel();
@@ -382,7 +383,7 @@ namespace Gravity
             bOrganize = Btn("", "Organize pages: reorder, cut, copy, paste, rotate, insert (Ctrl+E)", () => SetOrganize(true), "Organize");
 
             bPrev = Btn("", "Previous page (P)", () => view.PrevPage());
-            pageBox = new ToolStripTextBox { AutoSize = false, Width = S(46), TextBoxTextAlign = HorizontalAlignment.Center, BorderStyle = BorderStyle.FixedSingle, ToolTipText = "Go to page (Ctrl+G)" };
+            pageBox = new PageNumberField { AutoSize = false, Size = new Size(S(44), S(32)), ToolTipText = "Go to page (Ctrl+G)" };
             pageBox.KeyDown += (s, e) =>
             {
                 if (e.KeyCode != Keys.Enter) return;
@@ -926,7 +927,7 @@ namespace Gravity
                     Modified = t.Doc.IsModified,
                 });
             tabStrip.SelectedIndex = active != null ? tabs.IndexOf(active) : -1;
-            tabStrip.Visible = tabs.Count > 0 && !fullscreen;
+            tabStrip.Visible = tabs.Count > 1 && !fullscreen;
             tabStrip.Invalidate();
         }
 
@@ -1575,7 +1576,8 @@ namespace Gravity
             try
             {
                 int available = content.ClientSize.Width;
-                sidebar.Width = Math.Min(S(Math.Max(196, Math.Min(400, settings.SidebarWidth))), Math.Max(S(160), available - S(240)));
+                int limit = available < S(600) ? 160 : available < S(760) ? 190 : available < S(1000) ? 210 : 400;
+                sidebar.Width = Math.Min(S(Math.Max(160, Math.Min(limit, settings.SidebarWidth))), Math.Max(S(160), available - S(300)));
                 bool show = settings.ShowBookmarks && active != null && !fullscreen && available >= S(420);
                 sidebar.Visible = show;
                 splitter.Visible = show;
@@ -1750,7 +1752,7 @@ namespace Gravity
         // Keyboard
         // =====================================================================
 
-        private bool TextFocused { get { return findBox.Focused || searchPanel.QueryFocused || pageBox.Focused || zoomBox.Focused; } }
+        private bool TextFocused { get { return findBox.Focused || searchPanel.QueryFocused || pageBox.Focused || zoomBox.Focused || (customZoom != null && customZoom.Focused); } }
 
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
@@ -1843,7 +1845,7 @@ namespace Gravity
                     case Keys.Control | Keys.OemMinus:
                     case Keys.Control | Keys.Subtract:
                         organizer.ThumbSize = (int)(organizer.ThumbSize / 1.2); return true;
-                    case Keys.Control | Keys.D0: organizer.ThumbSize = 160; return true;
+                    case Keys.Control | Keys.D0: organizer.ThumbSize = 168; return true;
                 }
                 return organizer.HandleKey(k);
             }
@@ -1939,7 +1941,7 @@ namespace Gravity
                 miPagePanel.Enabled = has && !presentationMode;
                 miPagePanel.Checked = has && pagePanel.Visible;
 
-                bSave.Enabled = has && n > 0 && (doc.IsModified || doc.FilePath == null);
+                bSave.Enabled = has && n > 0;
                 bPrint.Enabled = has && n > 0;
                 bUndo.Enabled = has && doc.CanUndo;
                 bRedo.Enabled = has && doc.CanRedo;
@@ -2184,10 +2186,7 @@ namespace Gravity
 
         protected override void OnRenderToolStripBorder(ToolStripRenderEventArgs e)
         {
-            if (e.ToolStrip is ToolStripDropDown) { base.OnRenderToolStripBorder(e); return; }
-            if (e.ToolStrip is MenuStrip) return;
-            using (var pen = new Pen(Theme.ChromeBorder))
-                e.Graphics.DrawLine(pen, 0, e.ToolStrip.Height - 1, e.ToolStrip.Width, e.ToolStrip.Height - 1);
+            if (e.ToolStrip is ToolStripDropDown) base.OnRenderToolStripBorder(e);
         }
     }
 }

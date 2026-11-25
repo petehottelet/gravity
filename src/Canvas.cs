@@ -18,6 +18,9 @@ namespace Gravity
         public static readonly Color Accent = Color.FromArgb(0x17, 0x4B, 0x8B);
         public static readonly Color AccentHot = Color.FromArgb(0x08, 0x47, 0xAE);
         public static readonly Color AccentSoft = Color.FromArgb(0xE2, 0xEC, 0xF8);
+        public static readonly Color SidebarSelection = Color.FromArgb(0xE2, 0xEA, 0xF5);
+        public static readonly Color OutlineSelectedText = Color.FromArgb(0x15, 0x3E, 0x72);
+        public static readonly Color ThumbnailSelection = Color.FromArgb(0xDC, 0xE8, 0xF7);
         public static readonly Color PageBorder = Color.FromArgb(0xC4, 0xC6, 0xCA);
         public static readonly Color Selection = Color.FromArgb(80, 0x1A, 0x73, 0xE8);
         public static readonly Color SearchHit = Color.FromArgb(120, 0xFF, 0xB0, 0x00);
@@ -41,6 +44,66 @@ namespace Gravity
             p.CloseFigure();
             return p;
         }
+
+        public static void PaperShadow(Graphics graphics, Rectangle page, float scale, bool thumbnail = false)
+        {
+            int blur = Math.Max(3, (int)Math.Round((thumbnail ? 5 : 10) * scale));
+            int drop = Math.Max(1, (int)Math.Round((thumbnail ? 2 : 3) * scale));
+            int key = blur * 2 + (thumbnail ? 1 : 0);
+            Bitmap mask;
+            if (!shadowMasks.TryGetValue(key, out mask))
+            {
+                int size = blur * 4 + 1;
+                mask = new Bitmap(size, size, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+                var pixels = new byte[size * size * 4];
+                double sigma = blur / 2.0;
+                for (int y = 0; y < size; y++)
+                    for (int x = 0; x < size; x++)
+                    {
+                        double horizontal = NormalCdf((x - blur) / sigma) - NormalCdf((x - blur * 3) / sigma);
+                        double vertical = NormalCdf((y - blur) / sigma) - NormalCdf((y - blur * 3) / sigma);
+                        int index = (y * size + x) * 4;
+                        pixels[index] = thumbnail ? (byte)0x44 : (byte)0x4f;
+                        pixels[index + 1] = thumbnail ? (byte)0x30 : (byte)0x38;
+                        pixels[index + 2] = thumbnail ? (byte)0x23 : (byte)0x26;
+                        pixels[index + 3] = (byte)Math.Round((thumbnail ? 39 : 36) * horizontal * vertical);
+                    }
+                var data = mask.LockBits(new Rectangle(0, 0, size, size), System.Drawing.Imaging.ImageLockMode.WriteOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+                Marshal.Copy(pixels, 0, data.Scan0, pixels.Length); mask.UnlockBits(data);
+                shadowMasks.Add(key, mask);
+            }
+            var bounds = new Rectangle(page.X - blur, page.Y + drop - blur, page.Width + blur * 2, page.Height + blur * 2);
+            int corner = blur * 2;
+            if (bounds.Width <= corner * 2 || bounds.Height <= corner * 2) { graphics.DrawImage(mask, bounds); return; }
+            int[] source = { 0, corner, corner + 1, mask.Width };
+            int[] xs = { bounds.Left, bounds.Left + corner, bounds.Right - corner, bounds.Right };
+            int[] ys = { bounds.Top, bounds.Top + corner, bounds.Bottom - corner, bounds.Bottom };
+            for (int row = 0; row < 3; row++)
+                for (int column = 0; column < 3; column++)
+                    graphics.DrawImage(mask, Rectangle.FromLTRB(xs[column], ys[row], xs[column + 1], ys[row + 1]),
+                        source[column], source[row], source[column + 1] - source[column], source[row + 1] - source[row], GraphicsUnit.Pixel);
+        }
+
+        private static readonly System.Collections.Generic.Dictionary<int, Bitmap> shadowMasks = new System.Collections.Generic.Dictionary<int, Bitmap>();
+
+        private static double NormalCdf(double value)
+        {
+            double x = Math.Abs(value) / Math.Sqrt(2), t = 1 / (1 + 0.3275911 * x);
+            double erf = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.Exp(-x * x);
+            return 0.5 * (1 + (value < 0 ? -erf : erf));
+        }
+
+        public static void DrawTintedImage(Graphics graphics, Image image, Rectangle bounds, Color color)
+        {
+            var matrix = new System.Drawing.Imaging.ColorMatrix(new[] {
+                new float[] { 0, 0, 0, 0, 0 }, new float[] { 0, 0, 0, 0, 0 }, new float[] { 0, 0, 0, 0, 0 },
+                new float[] { 0, 0, 0, 1, 0 }, new[] { color.R / 255f, color.G / 255f, color.B / 255f, 0f, 1f } });
+            using (var attributes = new System.Drawing.Imaging.ImageAttributes())
+            {
+                attributes.SetColorMatrix(matrix);
+                graphics.DrawImage(image, bounds, 0, 0, image.Width, image.Height, GraphicsUnit.Pixel, attributes);
+            }
+        }
     }
 
     /// <summary>Brand artwork embedded in the executable (see tools/make_brand.py).</summary>
@@ -48,6 +111,17 @@ namespace Gravity
     {
         private static Image lockup;
         private static bool lockupLoaded;
+        private static Image mark;
+        public static Image Mark
+        {
+            get
+            {
+                if (mark == null)
+                    using (var stream = typeof(Brand).Assembly.GetManifestResourceStream("GMark.png"))
+                    using (var source = new Bitmap(stream)) mark = new Bitmap(source);
+                return mark;
+            }
+        }
 
         /// <summary>The icon + GRAVITY wordmark lockup, or null if the resource is missing.</summary>
         public static Image Lockup

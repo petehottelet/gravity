@@ -5,7 +5,7 @@
   </picture>
 </p>
 
-<p align="center">A lightweight PDF viewer, form filler, and page organizer for Windows and macOS.</p>
+<p align="center">A lightweight PDF viewer with form filling and basic management tools like page organizer for Windows and macOS.</p>
 
 <p align="center">
   <img alt="Version 1.0.0" src="docs/badges/version.svg" height="20">
@@ -24,14 +24,14 @@
   <a href="#building"><img alt="Tests: offline" src="docs/badges/tests.svg" height="20"></a>
 </p>
 
-Read PDFs, fill existing form fields, and rearrange, combine, cut, copy and paste pages between documents. On Windows, search a document with a results list, export pages to images or text, and assemble images into a PDF. The Windows app uses the bundled PDF engine; the native macOS app uses Apple's PDFKit.
+Read PDFs, fill existing form fields, and rearrange, combine, cut, copy and paste pages between documents without the runaway memory leaks and productivity-destroying performance issues caused by Adobe software. On Windows, search a document with a results list, export pages to images or text, and assemble images into a PDF. The Windows app uses the bundled PDF engine; the native macOS app uses Apple's PDFKit.
 
 - Windows: a small executable plus `pdfium.dll`, running on .NET Framework 4.8. No installer required.
 - Windows rendering happens in tiles on a background thread, so scrolling and zooming never wait on the page.
 - macOS: a native app for Apple Silicon and Intel, built with Xcode Command Line Tools. See [macOS](#macos) for coverage and build instructions.
 
 <p align="center">
-  <a href="docs/readme-reading.png"><img src="docs/readme-reading.png" alt="Gravity for Windows reading The Flying Graysons poster, with the G logo, flat window controls, and Outline sidebar" width="1200"></a>
+  <a href="docs/readme-reading.png"><img src="docs/readme-reading.png" alt="Gravity screenshot showing the modern, performant interface." width="1200"></a>
 </p>
 <p align="center"><sub>Gravity for Windows displaying The Flying Graysons poster.</sub></p>
 

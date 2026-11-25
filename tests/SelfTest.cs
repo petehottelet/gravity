@@ -39,8 +39,10 @@ namespace Gravity.Tests
                 T("rendering produces ink", Render),
                 T("invalid files are rejected", NotAPdf),
                 T("form filling, saving, and undo", () => FormTests.Run(dir)),
+                T("existing PDF text editing", () => TextEditingTests.Run(dir)),
                 T("distribution license notices", DistributionNotices),
                 T("bundled vector icons", IconTests.Run),
+                T("configurable icon colors", () => IconColorTests.Run(dir)),
                 T("safe saves, search, exports, and image import", () => FeatureTests.Run(dir)),
             };
             foreach (var t in tests)
@@ -51,7 +53,7 @@ namespace Gravity.Tests
             if (!args.Contains("--no-ui"))
             {
                 Console.WriteLine("-- user interface (real window, synthetic mouse and keyboard messages)");
-                try { UiTest.Run(dir); FormTests.RunUI(dir); FeatureTests.RunUI(dir); DialogTests.Run(); }
+                try { UiTest.Run(dir); FormTests.RunUI(dir); FeatureTests.RunUI(dir); TextEditingTests.RunUI(dir); IconColorTests.RunUI(); DialogTests.Run(); }
                 catch (Exception ex) { Fail("UI test threw " + ex); }
             }
             Console.WriteLine();

@@ -30,6 +30,7 @@ namespace Gravity
         public int ThumbSize = 168;
         public bool MatchCase;
         public ZoomMode DefaultZoom = ZoomMode.FitPage;
+        public string IconColorHex = IconColor.DefaultHex;
 
         public static string FolderPath
         {
@@ -40,11 +41,16 @@ namespace Gravity
 
         public static AppSettings Load()
         {
+            return Load(FilePath);
+        }
+
+        internal static AppSettings Load(string path)
+        {
             var s = new AppSettings();
             try
             {
-                if (!File.Exists(FilePath)) return s;
-                foreach (var raw in File.ReadAllLines(FilePath, Encoding.UTF8))
+                if (!File.Exists(path)) return s;
+                foreach (var raw in File.ReadAllLines(path, Encoding.UTF8))
                 {
                     int eq = raw.IndexOf('=');
                     if (eq <= 0) continue;
@@ -57,6 +63,7 @@ namespace Gravity
                         case "pagepanel": int.TryParse(val, out s.PagePanelWidth); break;
                         case "thumb": int.TryParse(val, out s.ThumbSize); break;
                         case "matchcase": s.MatchCase = val == "1"; break;
+                        case "iconcolor": s.IconColorHex = IconColor.Normalize(val); break;
                         case "maximized": s.Maximized = val == "1"; break;
                         case "zoom": ZoomMode z; if (Enum.TryParse(val, out z)) s.DefaultZoom = z; break;
                         case "bounds":
@@ -100,9 +107,18 @@ namespace Gravity
 
         public void Save()
         {
+            // Another process may have changed the color while this window was open.
+            IconColorHex = Load().IconColorHex;
+            TrySave();
+        }
+
+        public bool TrySave() { return TrySave(FilePath); }
+
+        internal bool TrySave(string path)
+        {
             try
             {
-                Directory.CreateDirectory(FolderPath);
+                Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path)));
                 var sb = new StringBuilder();
                 sb.AppendLine("bookmarks=" + (ShowBookmarks ? "1" : "0"));
                 sb.AppendLine("sidebar=" + SidebarWidth);
@@ -112,6 +128,7 @@ namespace Gravity
                 sb.AppendLine("matchcase=" + (MatchCase ? "1" : "0"));
                 sb.AppendLine("maximized=" + (Maximized ? "1" : "0"));
                 sb.AppendLine("zoom=" + DefaultZoom);
+                sb.AppendLine("iconcolor=" + IconColor.Normalize(IconColorHex));
                 if (!WindowBounds.IsEmpty)
                     sb.AppendLine(string.Format(Inv, "bounds={0},{1},{2},{3}", WindowBounds.X, WindowBounds.Y, WindowBounds.Width, WindowBounds.Height));
                 foreach (var r in Recent.Take(MaxRecent))
@@ -120,14 +137,14 @@ namespace Gravity
                     sb.AppendLine(string.Format(Inv, "recent={0}|{1:0.####}|{2}|{3:0.####}|{4}|{5}|{6}|{7}|{8}",
                         st.Page, st.PageV, st.Mode, st.Zoom, st.Rotation, st.Layout, st.Continuous ? 1 : 0, st.ScrollX, r.Path));
                 }
-                string tmp = FilePath + ".tmp";
-                File.WriteAllText(tmp, sb.ToString(), Encoding.UTF8);
-                if (File.Exists(FilePath)) File.Replace(tmp, FilePath, null);
-                else File.Move(tmp, FilePath);
+                byte[] bytes = Encoding.UTF8.GetBytes(sb.ToString());
+                AtomicFile.Write(path, stream => stream.Write(bytes, 0, bytes.Length));
+                return true;
             }
             catch (Exception)
             {
                 // Losing settings is acceptable; crashing on exit is not.
+                return false;
             }
         }
 

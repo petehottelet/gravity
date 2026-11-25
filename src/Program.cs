@@ -25,6 +25,12 @@ namespace Gravity
         [STAThread]
         private static int Main(string[] args)
         {
+            // Used after installation, including when the saved color predates registration.
+            if (args.Length == 1 && args[0] == "--refresh-icons")
+            {
+                try { ShellIcons.Refresh(AppSettings.Load().IconColorHex); return 0; }
+                catch (Exception) { return 1; }
+            }
             // GDI+ scans every installed font the first time any font is created. On machines with
             // thousands of fonts that takes most of a second, so start it immediately on another
             // thread and overlap it with instance detection and loading the documents.

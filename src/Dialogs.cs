@@ -148,6 +148,7 @@ namespace Gravity
   Copy selected text          Ctrl+C         (drag across text to select)
   Select all text             Ctrl+A
   Fill form fields            Ctrl+Shift+F   (or click a field)
+  Edit page text (Windows)     Ctrl+Shift+T
 
 ZOOM AND VIEW
   Zoom in / out               +, -, Ctrl+mouse wheel

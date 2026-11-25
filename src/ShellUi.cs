@@ -354,7 +354,7 @@ namespace Gravity
                 outlineDocument = doc; outlineVersion = doc.Version; outlineLocations.Clear();
                 var positions = new Dictionary<int, int>();
                 for (int i = 0; i < doc.Pages.Count; i++)
-                    if (doc.Pages[i].Src == doc.Base && !positions.ContainsKey(doc.Pages[i].Index)) positions.Add(doc.Pages[i].Index, i);
+                    if (doc.Pages[i].Src == tocBase && !positions.ContainsKey(doc.Pages[i].Index)) positions.Add(doc.Pages[i].Index, i);
                 foreach (TreeNode node in FlattenOutline(toc.Nodes))
                 {
                     var item = node.Tag as OutlineItem; int position;
@@ -387,7 +387,7 @@ namespace Gravity
             int indent = e.Node.Level * S(14);
             var text = new Rectangle(S(48) + indent, e.Bounds.Y, Math.Max(1, toc.Width - S(60) - indent), toc.ItemHeight);
             var item = e.Node.Tag as OutlineItem;
-            int page = item != null && active != null ? active.Doc.Find(active.Doc.Base, item.PageIndex) : -1;
+            int page = item != null && active != null ? active.Doc.Find(tocBase, item.PageIndex) : -1;
             using (var font = new Font(selected ? "Segoe UI Semibold" : "Segoe UI", 9f))
             {
                 TextRenderer.DrawText(e.Graphics, e.Node.Text, font, text, selected ? Theme.OutlineSelectedText : Theme.Text,

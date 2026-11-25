@@ -1141,8 +1141,8 @@ namespace Gravity
 
         public void Navigate(OutlineItem item)
         {
-            if (doc == null || doc.Base == null || item.PageIndex < 0) return;
-            int pos = doc.Find(doc.Base, item.PageIndex);
+            if (doc == null || doc.OutlineSource == null || item.PageIndex < 0) return;
+            int pos = doc.Find(doc.OutlineSource, item.PageIndex);
             if (pos < 0)
             {
                 Toast("That page was removed from this document.");
@@ -1206,6 +1206,25 @@ namespace Gravity
             selC1 = int.MaxValue / 2;
             selRects.Clear();
             Invalidate();
+        }
+
+        public void GetTextEditTarget(out int pageIndex, out int objectIndex)
+        {
+            pageIndex = currentPage; objectIndex = -1;
+            if (selP0 < 0) return;
+            int c0, p1, c1;
+            OrderedSelection(out pageIndex, out c0, out p1, out c1);
+            var page = pages[pageIndex];
+            if (page.Src == null) return;
+            lock (Pdfium.Lock)
+            {
+                IntPtr textPage = page.Src.GetTextPage(page.Index);
+                if (textPage == IntPtr.Zero) return;
+                IntPtr obj = Pdfium.FPDFText_GetTextObject(textPage, c0);
+                IntPtr native = page.Src.GetPage(page.Index);
+                for (int i = 0; i < Pdfium.FPDFPage_CountObjects(native); i++)
+                    if (Pdfium.FPDFPage_GetObject(native, i) == obj) { objectIndex = i; return; }
+            }
         }
 
         private void OrderedSelection(out int p0, out int c0, out int p1, out int c1)

@@ -174,9 +174,11 @@ namespace Gravity
 
     internal sealed class BrandMenuButton : Button
     {
+        public Color LogoColor { get; set; }
         private bool hovered, pressed;
         public BrandMenuButton()
         {
+            LogoColor = IconColor.Parse(IconColor.DefaultHex);
             FlatStyle = FlatStyle.Flat; FlatAppearance.BorderSize = 0; TabStop = true;
             BackColor = Theme.Chrome; AccessibleRole = AccessibleRole.PushButton;
             AccessibleName = "Gravity: Show application menus";
@@ -197,7 +199,7 @@ namespace Gravity
             if (hovered || pressed)
                 using (var path = Theme.RoundRect(bounds, s(6)))
                 using (var brush = new SolidBrush(pressed ? Color.FromArgb(0xD4, 0xE1, 0xF1) : Color.FromArgb(0xE2, 0xE8, 0xF0))) g.FillPath(brush, path);
-            Theme.DrawTintedImage(g, Brand.Mark, new Rectangle(s(20), (Height - s(23)) / 2, s(23), s(23)), Theme.Text);
+            Theme.DrawTintedImage(g, Brand.Mark, new Rectangle(s(20), (Height - s(23)) / 2, s(23), s(23)), LogoColor);
             using (var font = new Font("Segoe UI", 11.25f, FontStyle.Bold))
                 TextRenderer.DrawText(g, "Gravity", font, new Rectangle(s(52), 0, Width - s(60), Height), Theme.Text,
                     TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);

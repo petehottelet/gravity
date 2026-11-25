@@ -100,6 +100,12 @@ $lnk.WorkingDirectory = $dest
 $lnk.Description = 'Fast PDF viewer and page organizer'
 $lnk.Save()
 
+# Reapply the user's saved color after replacing the executable and registration.
+$iconRefresh = Start-Process -FilePath $exe -ArgumentList '--refresh-icons' -WindowStyle Hidden -Wait -PassThru
+if ($iconRefresh.ExitCode -ne 0) {
+    Write-Warning 'Gravity was installed, but its saved icon color could not be applied. Choose View > Icon Color in the app to retry.'
+}
+
 Notify-Shell
 Write-Host "Installed to $dest and registered for .pdf files."
 

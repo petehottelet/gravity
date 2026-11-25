@@ -84,6 +84,12 @@ Choose **File → Create PDF from Images**, or **Pages → Insert Images** for t
 
 Each image becomes one page, fitted without cropping. Camera orientation is respected and transparent areas appear white. Imports are limited to 40 million pixels per image. The new document opens in the organizer, where you can reorder and rotate pages before saving with **Ctrl+S**. Inserting images into an existing PDF is one undoable operation. Conversion is cancellable and does not create a partial document.
 
+### Basic text editing on Windows
+
+Choose **Edit → Edit Text** (`Ctrl+Shift+T`), or **Edit Text** from the reading view's right-click menu. Select a text section in the dialog; the original-page preview highlights its location. Selecting text in the reader first preselects its section. Edit one or more sections, then choose **Apply**. Clear a section's text to remove it. Changes support Undo/Redo and are written only when you **Save** or **Save As**.
+
+Edits keep the existing font, size, color and position. Each section accepts one line; longer replacements can overlap nearby content. There is no paragraph reflow, OCR, new-text insertion, or editing inside grouped artwork. PDFs may split a sentence into several sections. Fonts embedded with only some characters may reject replacements; Gravity keeps the original document when replacement text cannot be preserved. PDF editing restrictions are respected. Use **Fill Form** for interactive form fields.
+
 ### Form filling
 
 Click an existing field, or choose **Edit → Fill Form** (`Ctrl+Shift+F` on Windows, `Command+Shift+F` on macOS). Fill text, multiline text, checkboxes, radio buttons, and choice fields. Windows also supports lists with multiple selections.
@@ -104,6 +110,7 @@ JavaScript calculations, submission buttons, XFA forms, and digital signing are 
 | Find | Ctrl+F or /, then F3 / Shift+F3 |
 | Command palette | Ctrl+Shift+P |
 | Fill form fields on this page | Ctrl+Shift+F, or click a field |
+| Edit existing page text (Windows) | Ctrl+Shift+T |
 | Zoom | + and -, Ctrl+wheel |
 | Fit page / actual size / fit width | Ctrl+0, Ctrl+1, Ctrl+2 |
 | Toggle fit page and fit width | Z |
@@ -167,6 +174,10 @@ After rebuilding, run the script again to update the installed copy. To remove e
 
 Settings and the recent-files list are stored in `%APPDATA%\Gravity\settings.txt`.
 
+Choose **View → Icon Color…** to recolor the Gravity logo, app window icon, and associated PDF file icon. Enter any 6-digit RGB hex value, such as `#E63946`; 3-digit shorthand and values without `#` also work. The dialog previews both icons before you apply. **Reset to blue** restores `#0B57D0`.
+
+The color is remembered across restarts and installer updates. For an installed copy, it also updates the Start menu shortcut and Gravity's PDF icon in Explorer without changing your default PDF app. Windows may keep an older icon for pinned shortcuts; unpin and pin them again if needed. The portable executable's embedded icon stays blue. This setting is currently available on Windows.
+
 Command line: `Gravity.exe [file.pdf ...] [-page N] [--new-window]`
 
 ### macOS
@@ -180,19 +191,23 @@ open bin/Gravity.app
 
 This compiles `arm64` and `x86_64` into a universal app using system PDFKit. No PDF engine download, .NET, or third-party package is required. Copy `bin/Gravity.app` to Applications if desired. In Finder, use **Get Info → Open with → Gravity → Change All** to choose it as your PDF viewer.
 
-The native app includes document windows and macOS tabs, scrolling and zooming, text selection and search, a thumbnail sidebar with multiple selection, printing, and form filling. The **Pages** menu provides cut/copy/paste across documents, deletion, duplication, rotation, moving pages earlier/later, blank-page insertion, inserting PDFs, and extraction. Changes support undo/redo and standard save/close prompts.
+The native app uses the same document-first layout as Windows, with a **Read / Organize** switch, an **Outline / Pages** sidebar, and a header showing the filename, page count, and save state. Native Mac window controls, document tabs, menus, system typography, and SF Symbols keep the workspace familiar on macOS.
 
-Use `Command+O/S/P` for open/save/print, `Command+Shift+S` for Save As, `Command+F` to find, and `Command+Shift+F` to fill forms. Page cut/copy/paste uses `Command+Shift+X/C/V`; ordinary `Command+C` copies selected text. Select pages with Command-click or Shift-click.
+**Read** includes continuous scrolling, page-number navigation, zoom presets and Fit Page, bookmark navigation, text selection, a collapsible Find bar, printing, and form filling. **Organize** shows a thumbnail grid with multi-page selection and visible Rotate, Duplicate, and Delete actions. These actions wrap in smaller windows; the sidebar hides automatically below 700 points and can also be toggled manually. Double-click a thumbnail or press Return to read it. **More** and the **Pages** menu provide cut/copy/paste across documents, moving pages earlier/later, blank-page insertion, inserting PDFs, and extraction. Changes support undo/redo and standard save/close prompts.
+
+Use `Command+O/S/P` for open/save/print, `Command+Shift+S` for Save As, `Command+1/2` for Read/Organize, `Command+Control+S` to toggle the sidebar, `Command+F` to find, and `Command+Shift+F` to fill forms. Page cut/copy/paste uses `Command+Shift+X/C/V`; ordinary `Command+C` copies selected text in the reader or selected pages when the organizer has focus. Select pages with Command-click or Shift-click, or use Select all above the grid.
 
 Undoing all changes returns the document to its clean state and preserves the restored PDF bytes. Redo and undo across saved checkpoints update the modified indicator through AppKit's undo manager.
 
-The macOS app does not yet include Windows' command palette, search results panel, image/text export, images-to-PDF import, bookmark sidebar, presentation mode, file watching, remembered reading positions, drag reordering, or form lists with multiple selections.
+The macOS app does not yet include Windows' command palette, search results panel, image/text export, images-to-PDF import, presentation mode, file watching, remembered reading positions, drag reordering, or form lists with multiple selections.
 
 ```sh
 bash build-macos.sh --test --package
 ```
 
 This writes `dist/Gravity-1.0.0-mac-universal.zip`. Local builds use an ad-hoc signature; they are not Developer ID signed or notarized for distribution.
+
+For native workspace regression tests and screenshots of generated sample documents, run `bash build-macos.sh --snapshots` on a Mac. This also checks reading and organizer transitions, bookmarks, page navigation, multiselection, page operations, undo, search, save state, and controls at narrow widths. Captures are written to the ignored `output/mac-ui/` directory.
 
 ## Building
 

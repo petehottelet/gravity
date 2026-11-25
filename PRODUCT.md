@@ -8,7 +8,7 @@ adaptive
 
 ## Operating Context
 
-Native Windows desktop application in C# and Windows Forms, with a separate macOS application using AppKit and PDFKit. The current Lucide interface applies to Windows.
+Native Windows desktop application in C# and Windows Forms, with a separate macOS application using AppKit and PDFKit. Both use the selected document-first Read/Organize workspace; macOS retains native window controls, menus, tabs, system typography, and SF Symbols.
 
 ## Purpose and users
 

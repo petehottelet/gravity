@@ -45,6 +45,11 @@ final class GravityDocument: NSDocument {
         addWindowController(DocumentWindow(document: self))
     }
 
+    override func updateChangeCount(_ change: NSDocument.ChangeType) {
+        super.updateChangeCount(change)
+        for case let controller as DocumentWindow in windowControllers { controller.updateDocumentStatus() }
+    }
+
     func edit(_ name: String, operation: () throws -> Void) {
         do {
             let beforeModel = model

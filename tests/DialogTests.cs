@@ -46,7 +46,12 @@ namespace Gravity.Tests
         {
             var children = Children(dialog).ToList();
             SelfTest.Check(children.OfType<DialogField>().All(field => field.ClientRectangle.Contains(field.Editor.Bounds)), name + " keeps native editors inside their rounded frames");
-            SelfTest.Check(children.OfType<Button>().Where(button => button.Visible).All(button => button.Parent.ClientRectangle.Contains(button.Bounds)), name + " keeps all actions inside the window");
+            SelfTest.Check(children.OfType<Button>().Where(button => button.Visible).All(button =>
+            {
+                var scroll = button.Parent as ScrollableControl;
+                return button.Parent.ClientRectangle.Contains(button.Bounds) || scroll != null && scroll.AutoScroll && scroll.DisplayRectangle.Contains(button.Bounds);
+            }), name + " keeps actions visible or reachable by scrolling");
+            SelfTest.Check(children.OfType<DialogFooter>().All(footer => footer.Parent.ClientRectangle.Contains(footer.Bounds)), name + " keeps the action footer visible");
             SelfTest.Check(dialog.Content.Top > 30 && dialog.Content.BackColor == Color.White, name + " separates the integrated heading from the white content surface");
         }
 
@@ -138,6 +143,17 @@ namespace Gravity.Tests
                         CheckLayout(dialog, name); Capture(dialog, name); dialog.Close();
                     }
                 }
+            }
+            using (var images = new ImagesDialog(new[] { "first-page.png" }, false))
+            {
+                Show(images); images.ClientSize = new Size(420, 360); Application.DoEvents();
+                var move = Children(images).OfType<Button>().Single(button => button.Text == "Move down");
+                var body = (ScrollableControl)move.Parent;
+                body.ScrollControlIntoView(move); move.Focus(); Application.DoEvents();
+                SelfTest.Check(body.AutoScrollPosition.X < 0 && body.ClientRectangle.Contains(move.Bounds), "small displays can scroll image actions into view");
+                var cancel = (Control)images.CancelButton;
+                SelfTest.Check(images.RectangleToScreen(images.ClientRectangle).Contains(cancel.RectangleToScreen(cancel.ClientRectangle)), "small displays keep Cancel visible while options scroll");
+                CheckLayout(images, "small image dialog"); Capture(images, "images-small"); images.Close();
             }
             using (var owner = new GravityDialog("Dialog tests", 200, 100))
             {

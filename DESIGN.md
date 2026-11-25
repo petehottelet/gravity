@@ -304,6 +304,8 @@ Form filling, text and password prompts, combining files, export, image import, 
 
 Text, choice, numeric, and list fields retain their native Windows editors inside rounded frames, with a blue focus boundary and a muted disabled surface. The form editor wraps long labels and scrolls the focused field into view when resized. Preserve Enter/Escape, multiline input, password masking, selection, read-only fields, native dialog dragging, and explicit Apply followed by Save.
 
+On small displays or at enlarged scaling, options can scroll independently while the action footer stays visible.
+
 ## Do's and Don'ts
 
 ### Do:

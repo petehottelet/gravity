@@ -10,7 +10,7 @@ namespace Gravity
     internal sealed partial class MainForm
     {
         private DocumentHeader shellHeader;
-        private Panel commandBar;
+        private CommandBar commandBar;
         private ToolStrip modeTools, contextTools, navigationTools, openingTools, headerTools;
         private ToolStripButton bRead, bFind, bMenu, bOutline, bPages, bDuplicate, bEarlier, bLater;
         private ToolStripLabel selectionSummary;
@@ -99,12 +99,12 @@ namespace Gravity
             toolbar.Padding = new Padding(S(12), S(4), S(12), S(5)); toolbar.BackColor = Theme.Chrome;
             toolbar.ImageScalingSize = new Size(S(20), S(20)); toolbar.Font = new Font("Segoe UI", 9.5f); toolbar.TabStop = true;
             bFind = Btn("search", "Find in document (Ctrl+F)", FocusFind);
-            bMenu = Btn("ellipsis", "Show application menus", delegate { menuExpanded = !menuExpanded; menu.Visible = menuExpanded && !fullscreen; });
+            bMenu = Btn("ellipsis", "Show application menus", delegate { SetApplicationMenus(!menuExpanded, true); });
             foreach (var item in new[] { bSidebar, bOpen, bSave, bPrint, bUndo, bRedo, bFind, bMenu }) StyleShellItem(item, 44, 44);
             StyleShellItem(bOpen, 86, 44, "Open"); StyleShellItem(bSave, 86, 44, "Save");
             foreach (var item in new[] { bSave, bPrint, bUndo, bFind }) item.Alignment = ToolStripItemAlignment.Right;
             toolbar.Items.AddRange(new ToolStripItem[] { bSave, bPrint, bUndo, bFind });
-            commandBar = new Panel { Dock = DockStyle.Top, Height = S(60), BackColor = Theme.Chrome };
+            commandBar = new CommandBar { Dock = DockStyle.Top, Height = S(60), BackColor = Theme.Chrome };
             commandBar.Paint += delegate(object sender, PaintEventArgs e) { using (var pen = new Pen(Theme.ChromeBorder)) e.Graphics.DrawLine(pen, 0, commandBar.Height - 1, commandBar.Width, commandBar.Height - 1); };
             toolbar.Dock = DockStyle.None; toolbar.Width = S(268); toolbar.LayoutStyle = ToolStripLayoutStyle.HorizontalStackWithOverflow;
             commandBar.Controls.Add(toolbar);
@@ -118,6 +118,21 @@ namespace Gravity
             bRead.Margin = bOrganize.Margin = Padding.Empty;
             modeTools.Items.AddRange(new ToolStripItem[] { bRead, bOrganize });
             commandBar.Controls.Add(modeTools); modeTools.BringToFront();
+            menu.Dock = DockStyle.None; menu.AutoSize = false; menu.CanOverflow = false;
+            menu.LayoutStyle = ToolStripLayoutStyle.HorizontalStackWithOverflow;
+            menu.Renderer = new RoundedRenderer(); menu.Font = openingTools.Font;
+            menu.ImageScalingSize = openingTools.ImageScalingSize;
+            menu.Padding = new Padding(S(10), S(3), S(10), S(3));
+            string[] menuIcons = { "file-text", "pencil", "eye", "navigation", "files", "circle-question-mark" };
+            for (int i = 0; i < menu.Items.Count; i++)
+            {
+                var item = menu.Items[i];
+                item.Image = LucideIcons.Create(menuIcons[i], S(20), Theme.Text);
+                item.ToolTipText = item.Text.Replace("&", "") + " menu";
+                StyleShellItem(item, 94, 44);
+                item.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
+            }
+            commandBar.Controls.Add(menu);
             commandBar.Resize += delegate { LayoutLucideShell(); };
 
             contextTools = ShellTools(57); contextTools.Dock = DockStyle.Top;
@@ -181,7 +196,7 @@ namespace Gravity
             BuildWindowChrome();
             tabStrip.Dock = DockStyle.Top; tabStrip.Height = S(34); Controls.Add(tabStrip);
             Controls.Add(commandBar); Controls.Add(shellHeader);
-            Controls.SetChildIndex(content, 0); Controls.SetChildIndex(commandBar, 1); Controls.SetChildIndex(tabStrip, 2); Controls.SetChildIndex(menu, 3); Controls.SetChildIndex(shellHeader, 4);
+            Controls.SetChildIndex(content, 0); Controls.SetChildIndex(commandBar, 1); Controls.SetChildIndex(tabStrip, 2); Controls.SetChildIndex(shellHeader, 3);
             menu.Visible = false; menu.ForeColor = Theme.Text;
             sidebar.ResumeLayout(true); content.ResumeLayout(true); ResumeLayout(true); LayoutLucideShell();
         }
@@ -198,8 +213,35 @@ namespace Gravity
                 openingTools.Bounds = new Rectangle(0, 0, S(166), S(54));
                 commandBar.Height = S(compact ? 106 : 60);
                 modeTools.Bounds = new Rectangle((commandBar.Width - S(238)) / 2, S(compact ? 57 : 5), S(238), S(44));
+                menu.Bounds = new Rectangle(0, 0, commandBar.Width, S(54));
+                int menuWidth = Math.Min(S(94), Math.Max(1, (menu.DisplayRectangle.Width - S(4) * menu.Items.Count) / menu.Items.Count));
+                foreach (ToolStripItem item in menu.Items) item.Width = menuWidth;
             }
             finally { shellLayout = false; }
+        }
+
+        private void SetApplicationMenus(bool expanded, bool animate)
+        {
+            foreach (ToolStripMenuItem item in menu.Items) item.HideDropDown();
+            if (menuExpanded == expanded) return;
+            bool returnFocus = menu.ContainsFocus || openingTools.ContainsFocus || toolbar.ContainsFocus || modeTools.ContainsFocus;
+            commandBar.Transition(delegate
+            {
+                menuExpanded = expanded;
+                UpdateApplicationMenus(active != null);
+                LayoutLucideShell();
+            }, animate && !fullscreen && CommandBar.AnimationsEnabled,
+                expanded ? 250 : 180);
+            if (returnFocus) { headerTools.Focus(); bMenu.Select(); }
+        }
+
+        private void UpdateApplicationMenus(bool has)
+        {
+            menu.Visible = menuExpanded && !fullscreen;
+            openingTools.Visible = toolbar.Visible = !menuExpanded && !fullscreen;
+            modeTools.Visible = has && !menuExpanded && !fullscreen;
+            bMenu.Checked = menuExpanded;
+            bMenu.ToolTipText = bMenu.AccessibleName = menuExpanded ? "Hide application menus" : "Show application menus";
         }
 
         private void ShowNavigation(bool pages)
@@ -215,11 +257,13 @@ namespace Gravity
         private void UpdateLucideShell(bool has, bool organizing, int count, int selectedCount)
         {
             if (shellHeader == null) return;
-            shellHeader.Visible = commandBar.Visible = !fullscreen; menu.Visible = menuExpanded && !fullscreen;
-            contextTools.Visible = documentStatus.Visible = has && !fullscreen; modeTools.Visible = has;
+            shellHeader.Visible = commandBar.Visible = !fullscreen;
+            if (fullscreen) commandBar.FinishTransition();
+            UpdateApplicationMenus(has);
+            contextTools.Visible = documentStatus.Visible = has && !fullscreen;
             bRead.Checked = has && !organizing; bRead.Enabled = has && !presentationMode; bFind.Enabled = has;
             bOutline.Checked = !pagePanel.Visible; bPages.Checked = pagePanel.Visible; bOutline.Enabled = bPages.Enabled = has;
-            bMenu.Checked = menu.Visible; bDuplicate.Enabled = selectedCount > 0;
+            bDuplicate.Enabled = selectedCount > 0;
             var selection = organizer.SelectedIndices();
             bEarlier.Enabled = selectedCount > 0 && selection.Count > 0 && selection[0] > 0;
             bLater.Enabled = selectedCount > 0 && selection.Count > 0 && selection[selection.Count - 1] < count - 1;
@@ -392,7 +436,11 @@ namespace Gravity
             if (e.ToolStrip is ToolStripDropDown) base.OnRenderToolStripBorder(e);
         }
         protected override void OnRenderDropDownButtonBackground(ToolStripItemRenderEventArgs e) { DrawButton(e); }
-        private static bool PairedContent(ToolStripItem item) { return item is ToolStripButton && item.DisplayStyle == ToolStripItemDisplayStyle.ImageAndText && item.Image != null; }
+        protected override void OnRenderMenuItemBackground(ToolStripItemRenderEventArgs e)
+        {
+            if (e.Item.Owner is MenuStrip) DrawButton(e); else base.OnRenderMenuItemBackground(e);
+        }
+        private static bool PairedContent(ToolStripItem item) { return (item is ToolStripButton || item.Owner is MenuStrip) && item.DisplayStyle == ToolStripItemDisplayStyle.ImageAndText && item.Image != null; }
         private static Rectangle PairedImageBounds(Graphics graphics, ToolStripItem item)
         {
             int icon = item.Owner.ImageScalingSize.Width, gap = (int)Math.Round(8 * graphics.DpiX / 96f);

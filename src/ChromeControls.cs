@@ -1,10 +1,127 @@
 using System;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
 namespace Gravity
 {
+    /// <summary>Keeps the command row in place while its two native control sets change.</summary>
+    internal sealed class CommandBar : Panel
+    {
+        private CommandTransition transition;
+        public bool IsTransitioning { get { return transition != null; } }
+        [DllImport("user32.dll")]
+        private static extern bool SystemParametersInfo(uint action, uint parameter, out bool value, uint flags);
+        public static bool AnimationsEnabled
+        {
+            get
+            {
+                bool enabled;
+                return SystemInformation.IsMenuAnimationEnabled && SystemParametersInfo(0x1042, 0, out enabled, 0) && enabled;
+            }
+        }
+
+        public CommandBar()
+        {
+            SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint, true);
+        }
+
+        private Bitmap Snapshot()
+        {
+            var bitmap = new Bitmap(Width, Height);
+            if (transition != null)
+                transition.DrawToBitmap(bitmap, ClientRectangle);
+            else DrawToBitmap(bitmap, ClientRectangle);
+            return bitmap;
+        }
+
+        public void Transition(Action change, bool animate, int duration)
+        {
+            Bitmap before = animate && Visible && IsHandleCreated ? Snapshot() : null;
+            FinishTransition();
+            try
+            {
+                change();
+                if (before == null) return;
+                var after = Snapshot();
+                transition = new CommandTransition(before, after, duration) { Dock = DockStyle.Fill, BackColor = BackColor };
+                before = null;
+                transition.Completed += delegate { FinishTransition(); };
+                Controls.Add(transition); transition.BringToFront();
+            }
+            finally { if (before != null) before.Dispose(); }
+        }
+
+        public void FinishTransition()
+        {
+            if (transition == null) return;
+            var old = transition; transition = null;
+            Controls.Remove(old); old.Dispose();
+        }
+
+        protected override void OnSizeChanged(EventArgs e)
+        {
+            FinishTransition(); base.OnSizeChanged(e);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) FinishTransition();
+            base.Dispose(disposing);
+        }
+
+        private sealed class CommandTransition : Control
+        {
+            private readonly Bitmap before, after;
+            private readonly Timer timer = new Timer { Interval = 15 };
+            private readonly Stopwatch elapsed = Stopwatch.StartNew();
+            private readonly int duration;
+            public event EventHandler Completed;
+
+            public CommandTransition(Bitmap before, Bitmap after, int duration)
+            {
+                this.before = before; this.after = after; this.duration = duration;
+                SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
+                SetStyle(ControlStyles.Selectable, false); TabStop = false;
+                timer.Tick += delegate
+                {
+                    if (elapsed.ElapsedMilliseconds >= duration)
+                    { timer.Stop(); if (Completed != null) Completed(this, EventArgs.Empty); }
+                    else Invalidate();
+                };
+                timer.Start();
+            }
+
+            protected override void OnPaint(PaintEventArgs e)
+            {
+                e.Graphics.Clear(BackColor);
+                double progress = Math.Min(1, (double)elapsed.ElapsedMilliseconds / duration);
+                // Fade the old controls clear before the new labels occupy the same space.
+                bool entering = progress >= 0.36;
+                double amount = entering ? (progress - 0.36) / 0.64 : progress / 0.36;
+                float opacity = entering ? (float)(1 - Math.Pow(1 - amount, 3)) : (float)(1 - amount);
+                int rise = entering ? (int)Math.Round(4 * e.Graphics.DpiX / 96f * (1 - opacity)) : 0;
+                var bitmap = entering ? after : before;
+                using (var attributes = new ImageAttributes())
+                {
+                    attributes.SetColorMatrix(new ColorMatrix { Matrix33 = opacity });
+                    e.Graphics.DrawImage(bitmap, new Rectangle(0, rise, Width, Height), 0, 0, bitmap.Width, bitmap.Height, GraphicsUnit.Pixel, attributes);
+                }
+                // The full-width row divider stays steady throughout the transition.
+                using (var pen = new Pen(Theme.ChromeBorder)) e.Graphics.DrawLine(pen, 0, Height - 1, Width, Height - 1);
+            }
+
+            protected override void Dispose(bool disposing)
+            {
+                if (disposing) { timer.Dispose(); before.Dispose(); after.Dispose(); }
+                base.Dispose(disposing);
+            }
+        }
+    }
+
     internal sealed class OutlineTreeView : TreeView
     {
         protected override CreateParams CreateParams

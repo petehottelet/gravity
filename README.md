@@ -12,16 +12,6 @@
   <a href="LICENSE"><img alt="License: MIT" src="docs/badges/license.svg" height="20"></a>
   <a href="#windows"><img alt="Windows 10 | 11" src="docs/badges/windows.svg" height="20"></a>
   <a href="#macos"><img alt="macOS 12+: source build" src="docs/badges/macos.svg" height="20"></a>
-  <br>
-  <img alt=".NET Framework 4.8" src="docs/badges/dotnet.svg" height="20">
-  <img alt="Swift and PDFKit" src="docs/badges/swift.svg" height="20">
-  <img alt="Windows: portable" src="docs/badges/portable.svg" height="20">
-  <img alt="Mac: Apple Silicon and Intel" src="docs/badges/architecture.svg" height="20">
-  <br>
-  <img alt="Input: .pdf" src="docs/badges/pdf.svg" height="20">
-  <img alt="Pages: reorder, combine, cut and paste, rotate" src="docs/badges/pages.svg" height="20">
-  <a href="#form-filling"><img alt="Forms: fill, save, undo" src="docs/badges/forms.svg" height="20"></a>
-  <a href="#building"><img alt="Tests: offline" src="docs/badges/tests.svg" height="20"></a>
 </p>
 
 Read PDFs, fill existing form fields, and rearrange, combine, cut, copy and paste pages between documents without the runaway memory leaks and productivity-destroying performance issues caused by Adobe software. On Windows, search a document with a results list, export pages to images or text, and assemble images into a PDF. The Windows app uses the bundled PDF engine; the native macOS app uses Apple's PDFKit.
@@ -47,7 +37,7 @@ Read PDFs, fill existing form fields, and rearrange, combine, cut, copy and past
 
 The following reading and page-organizing controls describe the Windows app. macOS coverage is listed below.
 
-The Windows interface uses bundled Lucide icons, a **Read / Organize** switch, and a shared **Outline / Pages** sidebar. The top-right **…** button reveals the application menus; the command palette and keyboard shortcuts remain available. Primary controls use rounded targets, with page-specific commands above the document and save state below it.
+The Windows interface uses bundled Lucide icons, a **Read / Organize** switch, and a shared **Outline / Pages** sidebar. The top-right **…** button fades the command row into labeled **File / Edit / View / Go / Pages / Help** menus; toggle it again to restore Open and the document controls. The row stays in place, and Windows animation preferences are respected. F10, menu access keys, the command palette, and keyboard shortcuts remain available. Primary controls use rounded targets, with page-specific commands above the document and save state below it.
 
 **Reading**
 - Continuous scrolling, or one page (or spread) at a time. Single, facing, and book (cover alone) layouts.

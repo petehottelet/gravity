@@ -24,6 +24,15 @@ namespace Gravity.Tests
         [DllImport("user32.dll")]
         private static extern IntPtr SendMessage(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam);
 
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetWindowDC(IntPtr hwnd);
+
+        [DllImport("user32.dll")]
+        private static extern int ReleaseDC(IntPtr hwnd, IntPtr dc);
+
+        [DllImport("gdi32.dll")]
+        private static extern uint GetPixel(IntPtr dc, int x, int y);
+
         private static MainForm form;
 
         private static void Check(bool ok, string what) { SelfTest.Check(ok, what); }
@@ -181,10 +190,7 @@ namespace Gravity.Tests
             var headerMenu = Field<ToolStripButton>(form, "bMenu");
             Check(headerMenu.Placement == ToolStripItemPlacement.Main && headerMenu.Owner.ClientRectangle.Contains(headerMenu.Bounds),
                 "application menus remain visible in the header without an overflow stub");
-            headerMenu.PerformClick(); Pump(30);
-            Check(header.Top == 0 && Field<MenuStrip>(form, "menu").Top >= header.Bottom,
-                "revealing application menus keeps the window caption controls at the top edge");
-            headerMenu.PerformClick();
+            ApplicationMenuTests(true);
             WindowChromeTests();
             CapturePanel("nested-outline-and-tabs");
             var paper = Field<Rectangle[]>(view, "rects")[0];
@@ -461,6 +467,8 @@ namespace Gravity.Tests
 
             // ---- close
             Check(tabs.All(t => !t.Doc.IsModified), "all tabs clean before closing");
+            while (tabs.Count > 0) Key(Keys.Control | Keys.W);
+            ApplicationMenuTests(false);
             form.Close();
             Pump(200);
             Check(form.IsDisposed, "window closes without prompting");
@@ -644,6 +652,87 @@ namespace Gravity.Tests
             Pump(100);
         }
 
+        private static void ApplicationMenuTests(bool hasDocument)
+        {
+            var bar = Field<CommandBar>(form, "commandBar");
+            var menu = Field<MenuStrip>(form, "menu");
+            var toggle = Field<ToolStripButton>(form, "bMenu");
+            var opening = Field<ToolStrip>(form, "openingTools");
+            var commands = Field<ToolStrip>(form, "toolbar");
+            var modes = Field<ToolStrip>(form, "modeTools");
+            var content = Field<Control>(form, "content");
+            var originalSize = form.Size;
+            foreach (int width in new[] { 1200, 800, form.MinimumSize.Width })
+            {
+                form.Width = width; Pump(30);
+                var contentBounds = content.Bounds; var barBounds = bar.Bounds;
+                toggle.PerformClick();
+                Check(bar.IsTransitioning == CommandBar.AnimationsEnabled, "menu fade follows Windows animation preferences");
+                Check(PumpUntil(() => !bar.IsTransitioning, 700), "menu entrance finishes promptly");
+                Check(menu.Visible && menu.Parent == bar && !opening.Visible && !commands.Visible && !modes.Visible,
+                    "application menus replace the primary command row at width " + width);
+                Check(content.Bounds == contentBounds && bar.Bounds == barBounds && Field<DocumentHeader>(form, "shellHeader").Top == 0,
+                    "revealing menus preserves the document and header positions at width " + width);
+                Check(menu.Items.Cast<ToolStripItem>().All(item => item.Image != null && item.Height >= 44 &&
+                    item.Placement == ToolStripItemPlacement.Main && menu.ClientRectangle.Contains(item.Bounds) &&
+                    !string.IsNullOrEmpty(item.AccessibleName)), "all six labeled menu icons fit without overflow at width " + width);
+                Check(toggle.Checked && toggle.AccessibleName == "Hide application menus", "dot button announces the expanded state");
+                CaptureCommandBar((hasDocument ? "document" : "home") + "-menus-" + width);
+                toggle.PerformClick();
+                Check(PumpUntil(() => !bar.IsTransitioning, 700), "menu exit finishes promptly");
+                Check(!menu.Visible && opening.Visible && commands.Visible && modes.Visible == hasDocument && !toggle.Checked,
+                    "closing menus restores the original commands and document mode");
+                Check(content.Bounds == contentBounds && bar.Bounds == barBounds, "closing menus does not shift the document");
+            }
+            toggle.PerformClick(); Pump(35); toggle.PerformClick(); Pump(25); toggle.PerformClick();
+            Check(PumpUntil(() => !bar.IsTransitioning, 700) && menu.Visible && toggle.Checked,
+                "rapid toggling settles on the most recent menu state");
+            Call(form, "SetApplicationMenus", false, false);
+            Check(!bar.IsTransitioning && opening.Visible && !menu.Visible, "motion-free switching restores controls immediately");
+            // Exercise native menu activation on screen; an offscreen test window may
+            // not become the foreground window and its dropdown then closes immediately.
+            var offscreenLocation = form.Location;
+            var workArea = Screen.PrimaryScreen.WorkingArea;
+            form.Location = new Point(workArea.Left + 40, workArea.Top + 40);
+            form.BringToFront(); form.Activate(); Pump(50);
+            Check(Key(Keys.F10) && menu.Visible && menu.ContainsFocus && !bar.IsTransitioning,
+                "F10 reveals and focuses native application menus immediately");
+            Check(Key(Keys.Escape) && !menu.Visible, "Escape returns from the menu row to primary commands");
+            Check(Key(Keys.Alt | Keys.G) && ((ToolStripMenuItem)menu.Items[3]).DropDown.Visible,
+                "Alt+G opens the native Go menu from the collapsed toolbar");
+            ((ToolStripMenuItem)menu.Items[3]).HideDropDown();
+            if (hasDocument)
+            {
+                var view = Field<DocView>(form, "view"); view.GoToPage(0, false);
+                Field<ToolStripMenuItem>(form, "miNext").PerformClick();
+                Check(view.CurrentPage == 1, "expanded menu commands retain document navigation");
+                Check(Key(Keys.Control | Keys.G) && Field<PageNumberField>(form, "pageBox").Focused,
+                    "Go to page uses the inline page field while application menus replace the toolbar");
+                view.GoToPage(0, false);
+            }
+            else Check(!Field<ToolStripMenuItem>(form, "miNext").Enabled, "document menu actions stay disabled on the home screen");
+            Call(form, "SetApplicationMenus", false, false);
+            toggle.PerformClick(); form.Width += 10;
+            Check(!bar.IsTransitioning && menu.Visible, "resizing ends the fade without leaving a stale overlay");
+            Key(Keys.F11); Check(!bar.Visible && !menu.Visible && !bar.IsTransitioning, "fullscreen hides expanded menus and ends animation");
+            Key(Keys.F11); Check(bar.Visible && menu.Visible && toggle.Checked, "leaving fullscreen restores the expanded menu state");
+            Call(form, "SetApplicationMenus", false, false);
+            form.Size = originalSize; form.Location = offscreenLocation; Call(form, "FocusCanvas"); Pump(30);
+        }
+
+        private static void CaptureCommandBar(string name)
+        {
+            string folder = Environment.GetEnvironmentVariable("GRAVITY_TEST_SCREENSHOTS");
+            if (string.IsNullOrEmpty(folder)) return;
+            Directory.CreateDirectory(folder);
+            using (var bitmap = new Bitmap(form.Width, form.Height))
+            {
+                form.DrawToBitmap(bitmap, form.ClientRectangle);
+                var area = new Rectangle(0, 0, form.Width, Field<CommandBar>(form, "commandBar").Bottom);
+                using (var crop = bitmap.Clone(area, bitmap.PixelFormat)) crop.Save(Path.Combine(folder, name + ".png"));
+            }
+        }
+
         private static void CapturePanel(string name)
         {
             string folder = Environment.GetEnvironmentVariable("GRAVITY_TEST_SCREENSHOTS");
@@ -677,6 +766,7 @@ namespace Gravity.Tests
                 "custom header preserves native corner resizing and caption dragging");
             Check(max.AccessibilityObject.Role == AccessibleRole.PushButton && close.AccessibilityObject.Name == "Close",
                 "flat caption controls are named native accessible buttons");
+            WindowFramePaintTests();
             var bounds = form.Bounds;
             max.AccessibilityObject.DoDefaultAction(); Pump(60);
             Check(form.WindowState == FormWindowState.Maximized && max.AccessibleName == "Restore window" && form.Bounds == Screen.FromControl(form).WorkingArea,
@@ -695,6 +785,39 @@ namespace Gravity.Tests
             form.FormClosing += cancel; close.PerformClick(); form.FormClosing -= cancel;
             Check(requestedClose && !form.IsDisposed, "flat Close uses the normal cancellable close path and preserves unsaved-document checks");
             form.Bounds = offscreenBounds; Pump(30);
+        }
+
+        private static void WindowFramePaintTests()
+        {
+            form.BringToFront(); form.Refresh(); Pump(30);
+            // Read the actual window surface: DrawToBitmap repaints controls and can hide
+            // a system caption that was drawn over them by a nonclient message.
+            var header = Field<DocumentHeader>(form, "shellHeader");
+            var sample = header.PointToScreen(new Point(header.Width / 3, header.Height / 5));
+            sample.Offset(-form.Left, -form.Top);
+            uint expected = (uint)(Theme.Chrome.R | Theme.Chrome.G << 8 | Theme.Chrome.B << 16);
+            Action<string> checkSurface = label =>
+            {
+                IntPtr dc = GetWindowDC(form.Handle);
+                try { Check(dc != IntPtr.Zero && GetPixel(dc, sample.X, sample.Y) == expected, label); }
+                finally { if (dc != IntPtr.Zero) ReleaseDC(form.Handle, dc); }
+            };
+            checkSurface("visible custom header starts without a native caption overlay");
+            foreach (int message in new[] { 0x85, 0x86, 0xae, 0xaf })
+            {
+                form.Refresh();
+                SendMessage(form.Handle, message, (IntPtr)1, IntPtr.Zero);
+                checkSurface("native frame message " + message.ToString("X") + " cannot paint over the custom header");
+            }
+            form.Refresh();
+            SendMessage(form.Handle, 0x86, IntPtr.Zero, IntPtr.Zero);
+            checkSurface("deactivation cannot paint an inactive caption over the custom header");
+            SendMessage(form.Handle, 0x86, (IntPtr)1, IntPtr.Zero);
+            string title = form.Text;
+            form.Refresh();
+            form.Text = "Window frame regression";
+            checkSurface("changing the taskbar title does not draw a native title strip");
+            form.Text = title;
         }
 
         private static void Eq(string expected, string actual, string what)

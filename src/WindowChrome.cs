@@ -91,6 +91,19 @@ namespace Gravity
 
         protected override void WndProc(ref Message m)
         {
+            if (!fullscreen && (m.Msg == 0x85 || m.Msg == 0xae || m.Msg == 0xaf))
+            {
+                // WM_NCPAINT / WM_NCUAHDRAWCAPTION / WM_NCUAHDRAWFRAME:
+                // the whole frame is client-painted. Default processing can draw a
+                // classic caption over the header even without WS_CAPTION.
+                m.Result = IntPtr.Zero; return;
+            }
+            if (!fullscreen && m.Msg == 0x86 && WindowState != FormWindowState.Minimized) // WM_NCACTIVATE
+            {
+                // Preserve native activation, but prohibit its nonclient repaint.
+                m.LParam = (IntPtr)(-1);
+                base.WndProc(ref m); return;
+            }
             if (!fullscreen && m.Msg == 0x112) // WM_SYSCOMMAND
             {
                 int command = m.WParam.ToInt32() & 0xfff0;

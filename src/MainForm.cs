@@ -1478,7 +1478,7 @@ namespace Gravity
         {
             if (active == null) return;
             if (Organizing) SetOrganize(false);
-            if (!toolbar.Visible)
+            if (!contextTools.Visible)
             {
                 var s = Dialogs.Input(this, "Go to page", "Page number (1–" + Pages.Count + "):", (view.CurrentPage + 1).ToString());
                 int n;
@@ -1770,6 +1770,18 @@ namespace Gravity
 
         private bool HandleKey(Keys k)
         {
+            if (!fullscreen && (k == Keys.F10 || k == (Keys.Alt | Keys.F) || k == (Keys.Alt | Keys.E) ||
+                k == (Keys.Alt | Keys.V) || k == (Keys.Alt | Keys.G) || k == (Keys.Alt | Keys.P) || k == (Keys.Alt | Keys.H)))
+            {
+                SetApplicationMenus(true, false); commandBar.FinishTransition(); menu.Focus();
+                Keys[] menuKeys = { Keys.F, Keys.E, Keys.V, Keys.G, Keys.P, Keys.H };
+                int index = k == Keys.F10 ? 0 : Array.IndexOf(menuKeys, k & Keys.KeyCode);
+                var item = (ToolStripMenuItem)menu.Items[index]; item.Select();
+                if (k != Keys.F10) item.ShowDropDown();
+                return true;
+            }
+            if (k == Keys.Escape && menuExpanded && !fullscreen && !menu.Items.OfType<ToolStripMenuItem>().Any(item => item.DropDown.Visible))
+            { SetApplicationMenus(false, true); return true; }
             bool has = active != null, org = Organizing || (pagePanel.Visible && pageSelectionActive && !view.Focused);
             bool text = TextFocused, tree = toc.Focused;
             switch (k)

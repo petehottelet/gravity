@@ -9,7 +9,7 @@ namespace Gravity.Tests
         {
             var resources = typeof(LucideIcons).Assembly.GetManifestResourceNames()
                 .Where(n => n.StartsWith("Lucide.") && n.EndsWith(".svg")).ToArray();
-            SelfTest.Check(resources.Length == 32, "all Lucide assets are embedded for offline rendering");
+            SelfTest.Check(resources.Length == 38, "all Lucide assets are embedded for offline rendering");
             foreach (var resource in resources)
             {
                 string name = resource.Substring(7, resource.Length - 11);

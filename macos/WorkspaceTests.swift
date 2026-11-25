@@ -140,8 +140,17 @@ enum WorkspaceTests {
         search.stringValue = "unmatched-fixture-query"
         controller.findNext(nil)
         try check(pdfView.currentSelection == nil, "no-match search clears previous highlight")
+        let searchingFrame = pdfView.frame
         controller.closeFind(nil)
-        try check(search.isHiddenOrHasHiddenAncestor, "closing Find restores canvas space")
+        try check(search.isHiddenOrHasHiddenAncestor, "closing Find immediately hides the search field")
+        try check(pdfView.frame.minY == searchingFrame.minY - 48 &&
+                  pdfView.frame.height == searchingFrame.height + 48,
+                  "closing Find immediately restores canvas space")
+        try check(window.firstResponder === pdfView, "closing Find returns keyboard focus to the PDF")
+        controller.find(nil)
+        try check(!search.isHiddenOrHasHiddenAncestor && pdfView.frame == searchingFrame,
+                  "reopening Find restores its search layout")
+        controller.closeFind(nil)
         controller.showOrganize(nil)
         grid.selectionIndexPaths = [IndexPath(item: 2, section: 0)]
         controller.showRead(nil)

@@ -657,6 +657,7 @@ final class DocumentWindow: NSWindowController, NSCollectionViewDataSource, NSCo
         searchFeedback.stringValue = ""
         window?.makeFirstResponder(organizing ? organizer : pdfView)
         updateChrome()
+        root.layoutSubtreeIfNeeded()
     }
     @objc func findNext(_ sender: Any?) {
         guard !search.stringValue.isEmpty else {

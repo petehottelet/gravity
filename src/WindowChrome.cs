@@ -174,17 +174,21 @@ namespace Gravity
         public readonly int Hit;
         public bool Restore;
         private bool hovered;
-        public CaptionButton(string name, int hit)
+        private readonly bool clientHitTest;
+        public CaptionButton(string name, int hit, bool clientHitTest = false)
         {
+            this.clientHitTest = clientHitTest;
             Hit = hit; AccessibleName = name; AccessibleRole = AccessibleRole.PushButton;
             FlatStyle = FlatStyle.Flat; FlatAppearance.BorderSize = 0; Text = ""; TabStop = true;
             BackColor = Theme.Chrome; Cursor = Cursors.Default;
             SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
         }
         public void SetHover(bool value) { if (hovered != value) { hovered = value; Invalidate(); } }
+        protected override void OnMouseEnter(EventArgs e) { if (clientHitTest) SetHover(true); base.OnMouseEnter(e); }
+        protected override void OnMouseLeave(EventArgs e) { if (clientHitTest) SetHover(false); base.OnMouseLeave(e); }
         protected override void WndProc(ref Message m)
         {
-            if (m.Msg == 0x84) { m.Result = (IntPtr)(-1); return; } // HTTRANSPARENT: the frame owns native hit testing.
+            if (m.Msg == 0x84 && !clientHitTest) { m.Result = (IntPtr)(-1); return; } // HTTRANSPARENT: the frame owns native hit testing.
             base.WndProc(ref m);
         }
         protected override void OnPaint(PaintEventArgs e)

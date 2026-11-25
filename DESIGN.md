@@ -298,6 +298,12 @@ The selection summary stacks the count over an underlined Select all action. Rot
 
 The lower status strip reports page position or selection count on the left. Reading reminds the user that changes require saving; organizing gives selection and reading guidance. Actual save state is reported in the centered header, with modification state also available in document tabs. Existing document operations, search, forms, undo/redo, file dialogs, and explicit saving retain their behavior.
 
+### App Dialogs
+
+Form filling, text and password prompts, combining files, export, image import, keyboard shortcuts, command search, and job progress share an integrated 56px heading with the main window's flat Close control. Chrome and action footers use the cool neutral surface; content stays white. Titles use Segoe UI Semibold at 12pt, with 9.5pt body text. Actions use 36px rounded buttons, a blue primary action, and a neutral outlined secondary action. A 72px footer keeps actions separate from scrollable content.
+
+Text, choice, numeric, and list fields retain their native Windows editors inside rounded frames, with a blue focus boundary and a muted disabled surface. The form editor wraps long labels and scrolls the focused field into view when resized. Preserve Enter/Escape, multiline input, password masking, selection, read-only fields, native dialog dragging, and explicit Apply followed by Save.
+
 ## Do's and Don'ts
 
 ### Do:

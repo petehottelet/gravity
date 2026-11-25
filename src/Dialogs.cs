@@ -9,22 +9,9 @@ namespace Gravity
 {
     internal static class Dialogs
     {
-        private static Form MakeForm(string title, int w, int h)
+        private static GravityDialog MakeForm(string title, int w, int h)
         {
-            var f = new Form
-            {
-                Text = title,
-                FormBorderStyle = FormBorderStyle.FixedDialog,
-                StartPosition = FormStartPosition.CenterParent,
-                MinimizeBox = false,
-                MaximizeBox = false,
-                ShowInTaskbar = false,
-                Font = new Font("Segoe UI", 9f),
-                AutoScaleMode = AutoScaleMode.Dpi,
-                AutoScaleDimensions = new SizeF(96f, 96f),
-                ClientSize = new Size(w, h),
-            };
-            return f;
+            return new GravityDialog(title, w, h);
         }
 
         private static DialogResult ShowScaled(Form f, IWin32Window owner)
@@ -36,13 +23,15 @@ namespace Gravity
         /// <summary>Asks for a short text value. Returns null if cancelled.</summary>
         public static string Input(IWin32Window owner, string title, string prompt, string initial, bool password = false)
         {
-            using (var f = MakeForm(title, 380, 132))
+            using (var f = MakeForm(title, 420, 176))
             {
-                var label = new Label { Text = prompt, Left = 14, Top = 14, Width = 352, Height = 36 };
-                var box = new TextBox { Left = 14, Top = 52, Width = 352, Text = initial ?? "", UseSystemPasswordChar = password };
-                var ok = new Button { Text = "OK", DialogResult = DialogResult.OK, Left = 206, Top = 92, Width = 76 };
-                var cancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, Left = 290, Top = 92, Width = 76 };
-                f.Controls.AddRange(new Control[] { label, box, ok, cancel });
+                var label = new Label { Text = prompt, Left = 24, Top = 18, Width = 372, Height = 40 };
+                var box = new TextBox { Left = 24, Top = 62, Width = 372, Text = initial ?? "", UseSystemPasswordChar = password, AccessibleName = prompt, TabIndex = 0 };
+                var ok = new DialogButton { Text = "OK", DialogResult = DialogResult.OK, TabIndex = 0 };
+                var cancel = new DialogButton { Text = "Cancel", DialogResult = DialogResult.Cancel, TabIndex = 1 };
+                var footer = new DialogFooter { TabIndex = 1 };
+                footer.Controls.AddRange(new Control[] { cancel, ok });
+                f.Content.Controls.AddRange(new Control[] { label, box, footer });
                 f.AcceptButton = ok;
                 f.CancelButton = cancel;
                 f.Shown += delegate { box.SelectAll(); box.Focus(); };
@@ -59,18 +48,20 @@ namespace Gravity
         /// <summary>Lets the user order a list of PDF files before combining them.</summary>
         public static List<string> Combine(IWin32Window owner, IEnumerable<string> initial)
         {
-            using (var f = MakeForm("Combine PDFs", 560, 380))
+            using (var f = MakeForm("Combine PDFs", 580, 430))
             {
-                var hint = new Label { Text = "Files are combined from top to bottom. Drag files in, or use the buttons to reorder.", Left = 14, Top = 12, Width = 532, Height = 20 };
-                var list = new ListBox { Left = 14, Top = 38, Width = 420, Height = 292, IntegralHeight = false, SelectionMode = SelectionMode.MultiExtended, AllowDrop = true, HorizontalScrollbar = true };
-                var add = new Button { Text = "Add…", Left = 446, Top = 38, Width = 100 };
-                var remove = new Button { Text = "Remove", Left = 446, Top = 72, Width = 100 };
-                var up = new Button { Text = "Move up", Left = 446, Top = 116, Width = 100 };
-                var down = new Button { Text = "Move down", Left = 446, Top = 150, Width = 100 };
-                var sort = new Button { Text = "Sort by name", Left = 446, Top = 194, Width = 100 };
-                var ok = new Button { Text = "Combine", DialogResult = DialogResult.OK, Left = 362, Top = 342, Width = 88 };
-                var cancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, Left = 458, Top = 342, Width = 88 };
-                f.Controls.AddRange(new Control[] { hint, list, add, remove, up, down, sort, ok, cancel });
+                var hint = new Label { Text = "Files are combined from top to bottom. Drag files in, or use the buttons to reorder.", Left = 24, Top = 18, Width = 532, Height = 40, ForeColor = Theme.SubtleText };
+                var list = new ListBox { Left = 24, Top = 66, Width = 412, Height = 272, IntegralHeight = false, SelectionMode = SelectionMode.MultiExtended, AllowDrop = true, HorizontalScrollbar = true, AccessibleName = "PDFs in page order", TabIndex = 0 };
+                var add = new DialogButton { Text = "Add…", Left = 448, Top = 66, Width = 108, TabIndex = 1 };
+                var remove = new DialogButton { Text = "Remove", Left = 448, Top = 110, Width = 108, TabIndex = 2 };
+                var up = new DialogButton { Text = "Move up", Left = 448, Top = 166, Width = 108, TabIndex = 3 };
+                var down = new DialogButton { Text = "Move down", Left = 448, Top = 210, Width = 108, TabIndex = 4 };
+                var sort = new DialogButton { Text = "Sort by name", Left = 448, Top = 266, Width = 108, TabIndex = 5 };
+                var ok = new DialogButton { Text = "Combine", DialogResult = DialogResult.OK, TabIndex = 0 };
+                var cancel = new DialogButton { Text = "Cancel", DialogResult = DialogResult.Cancel, TabIndex = 1 };
+                var footer = new DialogFooter { TabIndex = 6 };
+                footer.Controls.AddRange(new Control[] { cancel, ok });
+                f.Content.Controls.AddRange(new Control[] { hint, list, add, remove, up, down, sort, footer });
                 f.AcceptButton = ok;
                 f.CancelButton = cancel;
 
@@ -210,7 +201,7 @@ FILES AND TABS
                 };
                 var pad = new Panel { Dock = DockStyle.Fill, Padding = new Padding(14), BackColor = Color.White };
                 pad.Controls.Add(box);
-                f.Controls.Add(pad);
+                f.Content.Controls.Add(pad);
                 f.Shown += delegate { box.SelectionLength = 0; f.ActiveControl = null; };
                 f.KeyPreview = true;
                 f.KeyDown += delegate (object s, KeyEventArgs e) { if (e.KeyCode == Keys.Escape) f.Close(); };

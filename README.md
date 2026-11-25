@@ -5,7 +5,7 @@
   </picture>
 </p>
 
-<p align="center">A lightweight PDF viewer with form filling and basic management tools like page organizer for Windows and macOS.</p>
+<p align="center">A lightweight PDF viewer with form filling and basic editing/concat tools for Windows and macOS.</p>
 
 <p align="center">
   <img alt="Version 1.0.0" src="docs/badges/version.svg" height="20">

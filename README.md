@@ -21,15 +21,15 @@ Read PDFs, fill existing form fields, and rearrange, combine, cut, copy and past
 - macOS: a native app for Apple Silicon and Intel, built with Xcode Command Line Tools. See [macOS](#macos) for coverage and build instructions.
 
 <p align="center">
-  <a href="docs/readme-reading.png"><img src="docs/readme-reading.png" alt="Gravity screenshot showing the modern, performant interface." width="1200"></a>
+  <a href="docs/readme-reading-framed.png"><img src="docs/readme-reading-framed.png" alt="Gravity screenshot showing the modern, performant interface." width="1200"></a>
 </p>
 <p align="center"><sub>Gravity for Windows displaying The Flying Graysons poster.</sub></p>
 
 <table>
   <tr>
-    <td align="center" width="33%"><a href="docs/readme-organize.png"><img src="docs/readme-organize.png" alt="Windows page organizer showing six programme pages, with two selected for page actions" width="400"></a><br><strong>Organize pages</strong></td>
-    <td align="center" width="33%"><a href="docs/readme-search.png"><img src="docs/readme-search.png" alt="Windows document search showing four matches for trapeze, page snippets, and a highlighted result" width="400"></a><br><strong>Search documents</strong></td>
-    <td align="center" width="33%"><a href="docs/readme-forms.png"><img src="docs/readme-forms.png" alt="Windows PDF form editor with guest name, performance, seats, and a checked programme option" width="400"></a><br><strong>Fill PDF forms</strong></td>
+    <td align="center" width="33%"><a href="docs/readme-organize-framed.png"><img src="docs/readme-organize-framed.png" alt="Windows page organizer showing six programme pages, with two selected for page actions" width="400"></a><br><strong>Organize pages</strong></td>
+    <td align="center" width="33%"><a href="docs/readme-search-framed.png"><img src="docs/readme-search-framed.png" alt="Windows document search showing four matches for trapeze, page snippets, and a highlighted result" width="400"></a><br><strong>Search documents</strong></td>
+    <td align="center" width="33%"><a href="docs/readme-forms-framed.png"><img src="docs/readme-forms-framed.png" alt="Windows PDF form editor with guest name, performance, seats, and a checked programme option" width="400"></a><br><strong>Fill PDF forms</strong></td>
   </tr>
 </table>
 

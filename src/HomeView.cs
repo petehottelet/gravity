@@ -18,7 +18,7 @@ namespace Gravity
         private readonly List<KeyValuePair<Rectangle, object>> hits = new List<KeyValuePair<Rectangle, object>>();
         private object hoverItem;
         private readonly float dpi;
-        private readonly ContextMenuStrip recentMenu = new ContextMenuStrip();
+        private readonly ContextMenuStrip recentMenu = new ContextMenuStrip { Renderer = new FlatRenderer() };
         private string menuPath;
         private Bitmap coloredLockup;
 
@@ -99,7 +99,7 @@ namespace Gravity
                         var r = new Rectangle(x + 1, y + i * rowH, colW - 2, rowH);
                         var item = recent[i];
                         if (ReferenceEquals(hoverItem, item))
-                            using (var hb = new SolidBrush(Color.FromArgb(0xEE, 0xF4, 0xFC)))
+                            using (var hb = new SolidBrush(Theme.RecentHover))
                                 g.FillRectangle(hb, Rectangle.Inflate(r, 0, -1));
                         if (i > 0)
                             using (var sep = new Pen(Color.FromArgb(0xEC, 0xED, 0xEF)))
@@ -125,7 +125,7 @@ namespace Gravity
 
         private void DrawButton(Graphics g, Rectangle r, string text, string hint, bool primary, Font font, Font small, bool hot)
         {
-            Color bg = primary ? (hot ? Theme.AccentHot : Theme.Accent) : (hot ? Color.FromArgb(0xF3, 0xF6, 0xFA) : Color.White);
+            Color bg = primary ? (hot ? Theme.AccentHot : Theme.Accent) : (hot ? Theme.RecentHover : Color.White);
             using (var path = Theme.RoundRect(r, S(6)))
             using (var b = new SolidBrush(bg))
             {
@@ -141,7 +141,7 @@ namespace Gravity
             {
                 var left = new Rectangle(r.X + S(16), r.Y, r.Width - S(32), r.Height);
                 TextRenderer.DrawText(g, text, font, left, fg, TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
-                TextRenderer.DrawText(g, hint, small, left, primary ? Color.FromArgb(0xC8, 0xDD, 0xF3) : Theme.SubtleText, TextFormatFlags.Right | TextFormatFlags.VerticalCenter);
+                TextRenderer.DrawText(g, hint, small, left, primary ? Theme.AccentHint : Theme.SubtleText, TextFormatFlags.Right | TextFormatFlags.VerticalCenter);
             }
         }
 

@@ -178,6 +178,8 @@ Native color definitions live in `src/Canvas.cs`, with tab hover in `src/TabStri
 
 ## Colors
 
+On Windows, **File → Icon Color** also controls the application accent palette. Preserve the original blue palette by default. Custom colors derive darker, readable action and icon shades plus distinct pale hover, pressed, navigation, outline, and thumbnail washes. Action text has at least 4.5:1 contrast against its surfaces, including for white, black, and bright yellow choices. Neutral document surfaces, PDF content, and semantic warning colors retain their roles. Theme changes repaint existing controls immediately, including menus and links. The icon dialog offers a native color picker, exact hex input, reset, previews, and an explicit Apply PDF icon action; File Associations directs default-app choices through Windows Settings.
+
 Restrained blue communicates action and selection against cool neutrals. Keep the reference's distinct selection surfaces; one pale blue does not replace every selected state. Sidecar tonal ramps are preview references, not additional implementation tokens.
 
 ### Primary
@@ -298,7 +300,7 @@ Real bookmark titles follow their page source through organization. A page witho
 
 The selection summary stacks the count over an underlined Select all action. Rotate, Duplicate, and Delete form the primary action group; a subtle vertical divider separates movement controls when shown. Narrow windows retain these actions by wrapping, with More reserved for additional narrow-organizer commands.
 
-The lower status strip reports page position or selection count on the left. Reading reminds the user that changes require saving; organizing gives selection and reading guidance. Actual save state is reported in the centered header, with modification state also available in document tabs. Existing document operations, search, forms, undo/redo, file dialogs, and explicit saving retain their behavior.
+The lower status strip reports page position or selection count on the left, and live save state on the right in both Read and Organize. Original uses a document icon for an unchanged file just opened or reloaded; Unsaved uses a pencil for pending edits or a document without a saved file; Saved uses a check after a successful save. Labels and 14px Lucide icons use the muted status color. Undo/redo and tab changes update the state immediately; failed or cancelled saves do not mark edits saved. The centered header uses the same state, with modification state also available in document tabs. Organizer selection guidance remains available in the position tooltip. Existing document operations, search, forms, undo/redo, file dialogs, and explicit saving retain their behavior.
 
 ### App Dialogs
 

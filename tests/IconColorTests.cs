@@ -193,6 +193,7 @@ namespace Gravity.Tests
                 Capture(form, "icon-color-home");
                 form.Close();
             }
+            Theme.SetAccent(IconColor.DefaultHex);
         }
 
         private static void Capture(Form form, string name)

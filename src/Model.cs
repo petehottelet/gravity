@@ -456,6 +456,8 @@ namespace Gravity
         public int GetHashCode(T o) { return RuntimeHelpers.GetHashCode(o); }
     }
 
+    internal enum DocumentSaveState { Original, Unsaved, Saved }
+
     /// <summary>
     /// A document open in a tab: an ordered list of page references with undo history.
     /// Saving materializes the list into a real PDF using PDFium's page import/move APIs.
@@ -475,6 +477,7 @@ namespace Gravity
         private readonly List<List<PageRef>> undo = new List<List<PageRef>>();
         private readonly List<List<PageRef>> redo = new List<List<PageRef>>();
         private bool modified;
+        private bool hasSaved;
 
         public EditDoc(PdfSource src)
         {
@@ -505,6 +508,10 @@ namespace Gravity
         }
 
         public bool IsModified { get { return modified; } }
+        public DocumentSaveState SaveState
+        {
+            get { return modified || FilePath == null ? DocumentSaveState.Unsaved : hasSaved ? DocumentSaveState.Saved : DocumentSaveState.Original; }
+        }
         public bool CanUndo { get { return undo.Count > 0; } }
         public bool CanRedo { get { return redo.Count > 0; } }
 
@@ -781,6 +788,7 @@ namespace Gravity
             var list = AllPages(fresh);
             saved = list;
             Pages = list;
+            hasSaved = true;
             OnChanged();
         }
 
@@ -799,6 +807,7 @@ namespace Gravity
             redo.Clear();
             Pages = AllPages(fresh);
             saved = Pages;
+            hasSaved = false;
             OnChanged();
         }
     }

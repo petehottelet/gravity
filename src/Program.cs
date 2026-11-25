@@ -31,6 +31,11 @@ namespace Gravity
                 try { ShellIcons.Refresh(AppSettings.Load().IconColorHex); return 0; }
                 catch (Exception) { return 1; }
             }
+            if (args.Length == 1 && args[0] == "--register-file-types")
+            {
+                try { FileAssociations.Register(Application.ExecutablePath, AppSettings.Load().IconColorHex); return 0; }
+                catch (Exception) { return 1; }
+            }
             // GDI+ scans every installed font the first time any font is created. On machines with
             // thousands of fonts that takes most of a second, so start it immediately on another
             // thread and overlap it with instance detection and loading the documents.
@@ -104,7 +109,7 @@ namespace Gravity
                 try
                 {
                     string path = Path.GetFullPath(f.Trim('"'));
-                    if (!File.Exists(path) || MainForm.Preloaded.ContainsKey(path)) continue;
+                    if (!File.Exists(path) || ImageImport.Supports(path) || MainForm.Preloaded.ContainsKey(path)) continue;
                     var src = PdfSource.Open(path, null);
                     MainForm.Preloaded[path] = src;
                     if (src.PageCount > 0)

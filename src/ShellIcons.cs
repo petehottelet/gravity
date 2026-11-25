@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using Microsoft.Win32;
@@ -30,6 +31,9 @@ namespace Gravity
                 string appIcon, pdfIcon;
                 WriteIcons(hex, folder, out appIcon, out pdfIcon);
                 using (var key = root.CreateSubKey(@"Software\Classes\Gravity.PDF\DefaultIcon")) key.SetValue("", Quote(pdfIcon));
+                using (var key = root.OpenSubKey(@"Software\Classes\Gravity.Image", true))
+                    if (key != null)
+                        using (var iconKey = key.CreateSubKey("DefaultIcon")) iconKey.SetValue("", Quote(appIcon));
                 using (var key = root.OpenSubKey(@"Software\Gravity\Capabilities", true))
                     if (key != null) key.SetValue("ApplicationIcon", Quote(appIcon));
                 using (var key = root.OpenSubKey(@"Software\Classes\Applications\Gravity.exe", true))
@@ -53,6 +57,7 @@ namespace Gravity
         private static void WriteIcon(string path, bool document, string hex)
         {
             var bytes = IconColor.IconBytes(document, hex);
+            if (File.Exists(path) && File.ReadAllBytes(path).SequenceEqual(bytes)) return;
             AtomicFile.Write(path, stream => stream.Write(bytes, 0, bytes.Length));
         }
 

@@ -31,11 +31,14 @@ function Test-InstalledRunning {
 }
 
 function Remove-Registration {
-    foreach ($k in "$classes\$progId", "$classes\Applications\Gravity.exe", 'HKCU:\Software\Gravity') {
+    foreach ($k in "$classes\$progId", "$classes\Gravity.Image", "$classes\Applications\Gravity.exe", 'HKCU:\Software\Gravity') {
         if (Test-Path $k) { Remove-Item -Path $k -Recurse -Force }
     }
-    if (Test-Path "$classes\.pdf\OpenWithProgids") {
-        Remove-ItemProperty -Path "$classes\.pdf\OpenWithProgids" -Name $progId -ErrorAction SilentlyContinue
+    foreach ($extension in '.pdf', '.png', '.jpg', '.jpeg', '.bmp') {
+        $handler = if ($extension -eq '.pdf') { $progId } else { 'Gravity.Image' }
+        if (Test-Path "$classes\$extension\OpenWithProgids") {
+            Remove-ItemProperty -Path "$classes\$extension\OpenWithProgids" -Name $handler -ErrorAction SilentlyContinue
+        }
     }
     Remove-ItemProperty -Path 'HKCU:\Software\RegisteredApplications' -Name 'Gravity' -ErrorAction SilentlyContinue
 }
@@ -101,9 +104,9 @@ $lnk.Description = 'Fast PDF viewer and page organizer'
 $lnk.Save()
 
 # Reapply the user's saved color after replacing the executable and registration.
-$iconRefresh = Start-Process -FilePath $exe -ArgumentList '--refresh-icons' -WindowStyle Hidden -Wait -PassThru
+$iconRefresh = Start-Process -FilePath $exe -ArgumentList '--register-file-types' -WindowStyle Hidden -Wait -PassThru
 if ($iconRefresh.ExitCode -ne 0) {
-    Write-Warning 'Gravity was installed, but its saved icon color could not be applied. Choose View > Icon Color in the app to retry.'
+    Write-Warning 'Gravity was installed, but its file types and saved icon color could not be applied. Choose File > File Associations or File > Icon Color in the app to retry.'
 }
 
 Notify-Shell

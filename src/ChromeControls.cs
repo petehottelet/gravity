@@ -198,7 +198,7 @@ namespace Gravity
             var bounds = new Rectangle(s(12), s(6), Width - s(24), Height - s(12));
             if (hovered || pressed)
                 using (var path = Theme.RoundRect(bounds, s(6)))
-                using (var brush = new SolidBrush(pressed ? Color.FromArgb(0xD4, 0xE1, 0xF1) : Color.FromArgb(0xE2, 0xE8, 0xF0))) g.FillPath(brush, path);
+                using (var brush = new SolidBrush(pressed ? Theme.Pressed : Theme.Hover)) g.FillPath(brush, path);
             Theme.DrawTintedImage(g, Brand.Mark, new Rectangle(s(20), (Height - s(23)) / 2, s(23), s(23)), LogoColor);
             using (var font = new Font("Segoe UI", 11.25f, FontStyle.Bold))
                 TextRenderer.DrawText(g, "Gravity", font, new Rectangle(s(52), 0, Width - s(60), Height), Theme.Text,

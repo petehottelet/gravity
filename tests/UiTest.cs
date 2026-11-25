@@ -163,11 +163,13 @@ namespace Gravity.Tests
             Check(Brand.Lockup != null && Brand.Lockup.Width > Brand.Lockup.Height * 3, "embedded logo lockup loads");
             Check(Brand.Mark != null && Brand.Mark.Width > 0, "approved G artwork is embedded in the application");
             Check(active() == tabs[2] && view.Visible && view.PageCount == 2, "last file is active in the reading view");
+            CheckSaveStatus("Original", "file-text");
             var readButton = Field<ToolStripButton>(form, "bRead");
             var organizeButton = Field<ToolStripButton>(form, "bOrganize");
             organizeButton.PerformClick(); organizeButton.PerformClick();
             Check(active().Organize && organizeButton.Checked && !readButton.Checked,
                 "Organize segment stays selected when clicked again");
+            CheckSaveStatus("Original", "file-text");
             readButton.PerformClick(); readButton.PerformClick();
             Check(!active().Organize && readButton.Checked && !organizeButton.Checked,
                 "Read segment restores the document and stays selected");
@@ -211,6 +213,7 @@ namespace Gravity.Tests
                     "Save icon and label render as one optically centered group inside the button");
             }
             form.Size = form.MinimumSize; Pump(50);
+            CheckSaveStatus("Original", "file-text");
             Check(!modeTools.Bounds.IntersectsWith(commands.Bounds) && organizeButton.Bounds.Right <= modeTools.ClientSize.Width,
                 "both mode segments remain unobscured at minimum window size");
             Check(Field<ToolStripButton>(form, "bOpen").Placement == ToolStripItemPlacement.Main &&
@@ -364,6 +367,7 @@ namespace Gravity.Tests
             Drag(org, CellCenter(org, 0), new Point(c2.Right - 4, c2.Y + c2.Height / 2));
             Eq("A2 A3 A1 A4 A5", Texts(tabs[0].Doc), "dragging page 1 after page 3 reorders");
             Check(tabs[0].Doc.IsModified, "reordering marks the document modified");
+            CheckSaveStatus("Unsaved", "pencil");
 
             // ---- modifier keys come from the mouse message, not the live keyboard state
             Click(org, CellCenter(org, 0));
@@ -382,6 +386,7 @@ namespace Gravity.Tests
             Eq("A2 A3 A1", Texts(tabs[0].Doc), "Ctrl+X cuts the selected pages");
             Key(Keys.Control | Keys.Tab);
             Check(active() == tabs[1] && view.Visible, "Ctrl+Tab switches to the next tab (reading view)");
+            CheckSaveStatus("Original", "file-text");
             Key(Keys.Control | Keys.V);
             Eq("B1 A4 A5 B2 B3", Texts(tabs[1].Doc), "Ctrl+V pastes after the current page in another document");
             Key(Keys.Control | Keys.OemCloseBrackets);
@@ -390,6 +395,7 @@ namespace Gravity.Tests
             // ---- save in place
             Key(Keys.Control | Keys.S);
             Check(!tabs[1].Doc.IsModified, "Ctrl+S saves");
+            CheckSaveStatus("Saved", "check");
             Eq("B1 A4 A5 B2 B3", SelfTest.FileTexts(b), "saved file has the pasted pages");
             var saved = PdfSource.Open(b, null);
             int rot;
@@ -407,13 +413,16 @@ namespace Gravity.Tests
             Key(Keys.Control | Keys.Z);
             Eq("A1 A2 A3 A4 A5", Texts(tabs[0].Doc), "Ctrl+Z undoes the move");
             Check(!tabs[0].Doc.IsModified, "fully undone document is clean");
+            CheckSaveStatus("Original", "file-text");
             Key(Keys.Control | Keys.Y);
+            CheckSaveStatus("Unsaved", "pencil");
             Key(Keys.Control | Keys.Z);
             Check(!tabs[0].Doc.IsModified, "redo then undo");
 
             // ---- reload when the file changes on disk
             File.Copy(Path.Combine(dir, "reordered.pdf"), a, true);
             Check(PumpUntil(() => Texts(tabs[0].Doc) == "A2 A4 A5 A3 A1", 4000), "an unmodified tab reloads when its file changes");
+            CheckSaveStatus("Original", "file-text");
 
             // ---- more organizer commands
             Key(Keys.Control | Keys.A);
@@ -445,7 +454,9 @@ namespace Gravity.Tests
             Click(org, CellCenter(org, 2));
             Call(form, "ExtractPages");
             Check(tabs.Count == 4 && active() == tabs[3] && tabs[3].Doc.Pages.Count == 1 && tabs[3].Doc.FilePath == null, "extract opens the page in a new untitled tab");
+            CheckSaveStatus("Unsaved", "pencil");
             tabs[3].Doc.SaveAs(Path.Combine(dir, "ui-extract.pdf"));
+            CheckSaveStatus("Saved", "check");
             Eq("A5", SelfTest.FileTexts(Path.Combine(dir, "ui-extract.pdf")), "extracted page saved");
             Key(Keys.Control | Keys.W);
             Check(tabs.Count == 3, "Ctrl+W closes a saved tab without asking");
@@ -468,6 +479,8 @@ namespace Gravity.Tests
             // ---- close
             Check(tabs.All(t => !t.Doc.IsModified), "all tabs clean before closing");
             while (tabs.Count > 0) Key(Keys.Control | Keys.W);
+            Check(!Field<StatusStrip>(form, "documentStatus").Visible && Field<ToolStripStatusLabel>(form, "saveStatus").Image == null,
+                "closing the last document hides and clears its save status");
             ApplicationMenuTests(false);
             form.Close();
             Pump(200);
@@ -732,6 +745,35 @@ namespace Gravity.Tests
             Key(Keys.F11); Check(bar.Visible && menu.Visible && toggle.Checked, "leaving fullscreen restores the expanded menu state");
             Call(form, "SetApplicationMenus", false, false);
             form.Size = originalSize; form.Location = offscreenLocation; Call(form, "FocusCanvas"); Pump(30);
+        }
+
+        private static void CheckSaveStatus(string text, string icon)
+        {
+            var status = Field<ToolStripStatusLabel>(form, "saveStatus");
+            var strip = Field<StatusStrip>(form, "documentStatus");
+            Check(status.Text == text && status.AccessibleName == "Save status: " + text,
+                "live status and accessible name show " + text);
+            Check(status.Visible && strip.ClientRectangle.Contains(status.Bounds) &&
+                status.Bounds.Left >= Field<ToolStripStatusLabel>(form, "positionStatus").Bounds.Right,
+                "save status stays visible beside page position");
+            bool matches = status.Image != null;
+            if (matches)
+                using (var expected = LucideIcons.Create(icon, status.Image.Width, Theme.SubtleText))
+                {
+                    var actual = (Bitmap)status.Image;
+                    for (int y = 0; y < expected.Height; y++)
+                        for (int x = 0; x < expected.Width; x++)
+                            matches &= actual.GetPixel(x, y) == expected.GetPixel(x, y);
+                }
+            Check(matches, text + " uses the matching Lucide icon");
+            string folder = Environment.GetEnvironmentVariable("GRAVITY_TEST_SCREENSHOTS");
+            if (string.IsNullOrEmpty(folder)) return;
+            Directory.CreateDirectory(folder);
+            using (var bitmap = new Bitmap(strip.Width, strip.Height))
+            {
+                strip.DrawToBitmap(bitmap, strip.ClientRectangle);
+                bitmap.Save(Path.Combine(folder, "save-status-" + text.ToLowerInvariant() + "-" + strip.Width + ".png"));
+            }
         }
 
         private static void CaptureCommandBar(string name)

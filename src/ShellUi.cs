@@ -70,7 +70,7 @@ namespace Gravity
             pagePanel.BackColor = Theme.Chrome;
             foreach (Control control in pagePanel.Controls) if (control != pageBody) control.Visible = false;
             navigationTools = ShellTools(58); navigationTools.Dock = DockStyle.Top;
-            navigationTools.Renderer = new RoundedRenderer { SelectionColor = Theme.SidebarSelection, CornerRadius = 5 };
+            navigationTools.Renderer = new RoundedRenderer { NavigationSelection = true, CornerRadius = 5 };
             navigationTools.Padding = new Padding(S(16), S(14), S(16), S(8));
             bOutline = new ToolStripButton("Outline") { ToolTipText = "Document outline", AutoToolTip = false };
             bPages = new ToolStripButton("Pages") { ToolTipText = "Page thumbnails", AutoToolTip = false };
@@ -186,9 +186,12 @@ namespace Gravity
             editGroup.AddRange(new ToolStripItem[] { selectionHost, bDuplicate, bEarlier, bLater, moveDivider });
             host.Controls.Add(contextTools);
             documentStatus = new StatusStrip { Dock = DockStyle.Bottom, SizingGrip = false, AutoSize = false, Height = S(31),
+                ShowItemToolTips = true, ImageScalingSize = new Size(S(14), S(14)),
                 BackColor = Color.FromArgb(0xF2, 0xF4, 0xF7), ForeColor = Theme.SubtleText, Padding = new Padding(S(18), 0, S(18), 0), Font = new Font("Segoe UI", 8.5f) };
             positionStatus = new ToolStripStatusLabel { Spring = true, TextAlign = ContentAlignment.MiddleLeft };
-            saveStatus = new ToolStripStatusLabel { TextAlign = ContentAlignment.MiddleRight };
+            saveStatus = new ToolStripStatusLabel { TextAlign = ContentAlignment.MiddleRight,
+                ImageAlign = ContentAlignment.MiddleLeft, TextImageRelation = TextImageRelation.ImageBeforeText };
+            saveStatus.Disposed += delegate { if (saveStatus.Image != null) saveStatus.Image.Dispose(); };
             documentStatus.Items.AddRange(new ToolStripItem[] { positionStatus, saveStatus }); host.Controls.Add(documentStatus);
             shellHeader = new DocumentHeader { Dock = DockStyle.Top, Height = S(55) };
             shellHeader.BrandAction.Width = S(144);
@@ -274,9 +277,10 @@ namespace Gravity
             navigationTitle.Text = has ? System.IO.Path.GetFileNameWithoutExtension(active.Doc.DisplayName) : "";
             navigationCount.Text = has ? Count(count) : "";
             positionStatus.Text = organizing ? Count(count) + " · " + Count(selectedCount) + " selected" : "Page " + (count > 0 ? view.CurrentPage + 1 : 0) + " of " + count;
-            saveStatus.Text = organizing ? "Ctrl click to select · Double-click to read" : "Nothing is written until you save";
+            positionStatus.ToolTipText = organizing ? "Ctrl click to select · Double-click to read" : "";
+            UpdateSaveStatus(has ? active.Doc : null);
             shellHeader.DocumentTitle = has ? active.Doc.DisplayName : "";
-            shellHeader.DocumentState = has ? Count(count) + " · " + (active.Doc.IsModified || active.Doc.FilePath == null ? "Unsaved changes" : "Saved") : "PDF reader and organizer";
+            shellHeader.DocumentState = has ? Count(count) + " · " + (active.Doc.SaveState == DocumentSaveState.Unsaved ? "Unsaved changes" : saveStatus.Text) : "PDF reader and organizer";
             shellHeader.AccessibleName = shellHeader.DocumentTitle + ", " + shellHeader.DocumentState;
             shellHeader.Invalidate();
             bPrint.Visible = has && ClientSize.Width >= S(700); bRedo.Visible = false;
@@ -298,6 +302,25 @@ namespace Gravity
             int section = outlineLocations.FindIndex(location => location.Value == toc.SelectedNode);
             navigationPosition.Text = section >= 0 ? "Section " + (section + 1) + " of " + outlineLocations.Count : "Page " + (count > 0 ? view.CurrentPage + 1 : 0) + " of " + count;
             toc.Invalidate();
+        }
+
+        private void UpdateSaveStatus(EditDoc doc)
+        {
+            string label = doc == null ? "" : doc.SaveState.ToString();
+            if (saveStatus.Text != label)
+            {
+                var previous = saveStatus.Image;
+                string icon = label == "Unsaved" ? "pencil" : label == "Saved" ? "check" : "file-text";
+                saveStatus.Image = doc == null ? null : LucideIcons.Create(icon, S(14), Theme.SubtleText);
+                saveStatus.Text = label;
+                saveStatus.AccessibleName = doc == null ? "" : "Save status: " + label;
+                if (previous != null) previous.Dispose();
+            }
+            saveStatus.ToolTipText = doc == null ? "" : doc.SaveState == DocumentSaveState.Original
+                ? "Unchanged since opening."
+                : doc.SaveState == DocumentSaveState.Saved ? "All changes saved."
+                : doc.FilePath == null ? "This document has not been saved. Press Ctrl+S to save."
+                : "Changes have not been saved. Press Ctrl+S to save.";
         }
 
         private void LayoutContextActions(bool wrap)
@@ -405,7 +428,8 @@ namespace Gravity
     internal class RoundedRenderer : ToolStripProfessionalRenderer
     {
         public bool WhiteSelection;
-        public Color SelectionColor = Theme.AccentSoft;
+        public bool NavigationSelection;
+        public Color SelectionColor { get { return NavigationSelection ? Theme.SidebarSelection : Theme.AccentSoft; } }
         public float CornerRadius = 6;
         public RoundedRenderer() : base(new FlatColors()) { RoundedEdges = true; }
         private void DrawButton(ToolStripItemRenderEventArgs e)
@@ -425,7 +449,7 @@ namespace Gravity
                     e.Graphics.FillPath(Brushes.White, path);
                 }
                 else if (selected || e.Item.Selected || e.Item.Pressed)
-                    using (var fill = new SolidBrush(e.Item.Pressed ? Color.FromArgb(0xD4, 0xE1, 0xF1) : selected ? SelectionColor : Color.FromArgb(0xE2, 0xE8, 0xF0))) e.Graphics.FillPath(fill, path);
+                    using (var fill = new SolidBrush(e.Item.Pressed ? Theme.Pressed : selected ? SelectionColor : Theme.Hover)) e.Graphics.FillPath(fill, path);
                 if (e.Item.Selected && e.Item.Owner != null && e.Item.Owner.ContainsFocus)
                     using (var pen = new Pen(Theme.Accent, Math.Max(2, 2 * scale))) e.Graphics.DrawPath(pen, path);
                 else if (e.Item.Text == "Save")
@@ -453,7 +477,7 @@ namespace Gravity
         {
             if (PairedContent(e.Item)) e = new ToolStripItemImageRenderEventArgs(e.Graphics, e.Item, e.Image, PairedImageBounds(e.Graphics, e.Item));
             var button = e.Item as ToolStripButton;
-            if (WhiteSelection && button != null && button.Checked && e.Image != null)
+            if (e.Item.Enabled && e.Image != null && (button != null && button.Checked || e.Item.Selected || e.Item.Pressed))
                 Theme.DrawTintedImage(e.Graphics, e.Image, e.ImageRectangle, Theme.Accent);
             else base.OnRenderItemImage(e);
         }
@@ -467,7 +491,7 @@ namespace Gravity
                 e.TextFormat = TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding | TextFormatFlags.SingleLine;
             }
             var button = e.Item as ToolStripButton;
-            e.TextColor = !e.Item.Enabled ? SystemColors.GrayText : button != null && button.Checked ? Theme.Accent : e.Item.ForeColor;
+            e.TextColor = !e.Item.Enabled ? SystemColors.GrayText : button != null && button.Checked || e.Item.Selected || e.Item.Pressed ? Theme.Accent : e.Item.ForeColor;
             base.OnRenderItemText(e);
         }
     }

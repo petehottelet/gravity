@@ -253,7 +253,7 @@ namespace Gravity
         protected override void OnPaint(PaintEventArgs e)
         {
             var g = e.Graphics;
-            g.Clear(hovered ? Hit == 20 ? Color.FromArgb(196, 43, 28) : Color.FromArgb(0xE2, 0xE8, 0xF0) : Theme.Chrome);
+            g.Clear(hovered ? Hit == 20 ? Color.FromArgb(196, 43, 28) : Theme.Hover : Theme.Chrome);
             float scale = g.DpiX / 96f;
             int side = (int)Math.Round(10 * scale), x = (Width - side) / 2, y = (Height - side) / 2;
             using (var pen = new Pen(hovered && Hit == 20 ? Color.White : Theme.SubtleText, Math.Max(1, scale)))

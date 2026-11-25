@@ -213,7 +213,7 @@ namespace Gravity
         {
             bool primary = FindForm() != null && FindForm().AcceptButton == this;
             Color fill = !Enabled ? Theme.Chrome : primary ? pressed ? Theme.OutlineSelectedText : hovered ? Theme.AccentHot : Theme.Accent
-                : pressed ? Theme.SidebarSelection : hovered ? Theme.ViewBack : Color.White;
+                : pressed ? Theme.SidebarSelection : hovered ? Theme.Hover : Color.White;
             Color ink = !Enabled ? SystemColors.GrayText : primary ? Color.White : Theme.Text;
             float scale = e.Graphics.DpiX / 96f;
             e.Graphics.Clear(Parent == null ? BackColor : Parent.BackColor);

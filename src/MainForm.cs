@@ -96,6 +96,7 @@ namespace Gravity
             startupArgs = args ?? new string[0];
             Ephemeral = ephemeral;
             settings = ephemeral ? new AppSettings() : AppSettings.Load();
+            Theme.SetAccent(settings.IconColorHex);
             using (var g = Graphics.FromHwnd(IntPtr.Zero)) dpi = g.DpiX;
             Text = "Gravity";
             Font = new Font("Segoe UI", 9f);
@@ -527,7 +528,9 @@ namespace Gravity
             {
                 MI("&Open…", "Ctrl+O", OpenDialog), miRecent, MI("Co&mbine PDFs…", null, CombineFiles), new ToolStripSeparator(),
                 MI("Create PDF from &Images…", null, () => ImportImages(null, false, 0)), new ToolStripSeparator(),
-                miSave, miSaveAs, miSavePages, miExport, new ToolStripSeparator(), miPrint, new ToolStripSeparator(), miClose, MI("E&xit", "Alt+F4", Close),
+                miSave, miSaveAs, miSavePages, miExport, new ToolStripSeparator(), miPrint, new ToolStripSeparator(),
+                MI("Icon Co&lor…", null, ChooseIconColor), MI("File Associa&tions…", null, ChooseFileAssociations),
+                new ToolStripSeparator(), miClose, MI("E&xit", "Alt+F4", Close),
             });
 
             var edit = new ToolStripMenuItem("&Edit");
@@ -564,7 +567,6 @@ namespace Gravity
                 miOrganize, new ToolStripSeparator(), miSingle, miFacing, miBook, miContinuous, new ToolStripSeparator(),
                 miFitPage, miFitWidth, miActual, miZoomIn, miZoomOut, new ToolStripSeparator(), miRotL, miRotR, new ToolStripSeparator(),
                 miBookmarks, miPagePanel, miFullscreen, miPresentation,
-                new ToolStripSeparator(), MI("Icon &Color…", null, ChooseIconColor),
             });
 
             var go = new ToolStripMenuItem("&Go");
@@ -730,7 +732,7 @@ namespace Gravity
 
         private void OpenDialog()
         {
-            using (var dlg = new OpenFileDialog { Filter = "PDF files (*.pdf)|*.pdf|All files (*.*)|*.*", Multiselect = true, Title = "Open" })
+            using (var dlg = new OpenFileDialog { Filter = "Supported files (*.pdf;*.png;*.jpg;*.jpeg;*.bmp)|*.pdf;*.png;*.jpg;*.jpeg;*.bmp|PDF files (*.pdf)|*.pdf|" + ImageImport.Filter + "|All files (*.*)|*.*", Multiselect = true, Title = "Open" })
             {
                 if (active != null && active.Doc.FilePath != null) dlg.InitialDirectory = Path.GetDirectoryName(active.Doc.FilePath);
                 if (dlg.ShowDialog(this) == DialogResult.OK) OpenFiles(dlg.FileNames, -1);
@@ -750,6 +752,19 @@ namespace Gravity
                 if (!File.Exists(path))
                 {
                     MessageBox.Show(this, "The file could not be found:\n" + path, "Gravity", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    continue;
+                }
+                if (ImageImport.Supports(path))
+                {
+                    byte[] bytes = null;
+                    if (WorkDialog.Run(this, "Open image", (cancel, progress) => bytes = ImageImport.Create(new[] { path },
+                        new ImageImportOptions { Size = ImagePageSize.Image, Margin = 0 }, cancel, progress)))
+                    {
+                        var imageSource = PdfSource.FromBytes(bytes, null);
+                        var imageTab = new DocTab { Doc = new EditDoc(EditDoc.AllPages(imageSource), Path.GetFileNameWithoutExtension(path) + ".pdf"),
+                            View = new ViewState { Mode = settings.DefaultZoom } };
+                        AddTab(imageTab); last = imageTab;
+                    }
                     continue;
                 }
                 PdfSource src;
@@ -2168,9 +2183,9 @@ namespace Gravity
     /// <summary>Flat, light colors for menus and toolbars.</summary>
     internal sealed class FlatColors : ProfessionalColorTable
     {
-        private static readonly Color Hover = Color.FromArgb(0xE8, 0xEF, 0xF9);
-        private static readonly Color HoverBorder = Color.FromArgb(0xC6, 0xD7, 0xEE);
-        private static readonly Color Pressed = Color.FromArgb(0xD5, 0xE3, 0xF6);
+        private static Color Hover { get { return Theme.MenuHover; } }
+        private static Color HoverBorder { get { return Theme.HoverBorder; } }
+        private static Color Pressed { get { return Theme.Pressed; } }
 
         public override Color ToolStripGradientBegin { get { return Color.White; } }
         public override Color ToolStripGradientMiddle { get { return Color.White; } }

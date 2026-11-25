@@ -7,7 +7,7 @@ using System.Windows.Forms;
 
 namespace Gravity
 {
-    internal static class Theme
+    internal static partial class Theme
     {
         public static readonly Color ViewBack = Color.FromArgb(0xE8, 0xEB, 0xEF);
         public static readonly Color Chrome = Color.FromArgb(0xF7, 0xF8, 0xFA);
@@ -15,14 +15,7 @@ namespace Gravity
         public static readonly Color TabActive = Color.White;
         public static readonly Color Text = Color.FromArgb(0x22, 0x28, 0x31);
         public static readonly Color SubtleText = Color.FromArgb(0x41, 0x4B, 0x57);
-        public static readonly Color Accent = Color.FromArgb(0x17, 0x4B, 0x8B);
-        public static readonly Color AccentHot = Color.FromArgb(0x08, 0x47, 0xAE);
-        public static readonly Color AccentSoft = Color.FromArgb(0xE2, 0xEC, 0xF8);
-        public static readonly Color SidebarSelection = Color.FromArgb(0xE2, 0xEA, 0xF5);
-        public static readonly Color OutlineSelectedText = Color.FromArgb(0x15, 0x3E, 0x72);
-        public static readonly Color ThumbnailSelection = Color.FromArgb(0xDC, 0xE8, 0xF7);
         public static readonly Color PageBorder = Color.FromArgb(0xC4, 0xC6, 0xCA);
-        public static readonly Color Selection = Color.FromArgb(80, 0x1A, 0x73, 0xE8);
         public static readonly Color SearchHit = Color.FromArgb(120, 0xFF, 0xB0, 0x00);
         public static readonly Color Modified = Color.FromArgb(0xD9, 0x6C, 0x00);
 

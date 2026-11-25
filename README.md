@@ -174,9 +174,13 @@ After rebuilding, run the script again to update the installed copy. To remove e
 
 Settings and the recent-files list are stored in `%APPDATA%\Gravity\settings.txt`.
 
-Choose **View → Icon Color…** to recolor the Gravity logo, app window icon, and associated PDF file icon. Enter any 6-digit RGB hex value, such as `#E63946`; 3-digit shorthand and values without `#` also work. The dialog previews both icons before you apply. **Reset to blue** restores `#0B57D0`.
+Choose **File → Icon Color…** to recolor the Gravity logo, app window icon, associated PDF file icon, and app accents. Use **Choose color…** for the Windows color picker, or enter any 6-digit RGB hex value, such as `#E63946`; 3-digit shorthand and values without `#` also work. The dialog previews both icons before you apply. Buttons, colored icons, links, hover states, and selections use matching shades with readable text. **Reset to blue** restores `#0B57D0` and the original blue accents.
 
 The color is remembered across restarts and installer updates. For an installed copy, it also updates the Start menu shortcut and Gravity's PDF icon in Explorer without changing your default PDF app. Windows may keep an older icon for pinned shortcuts; unpin and pin them again if needed. The portable executable's embedded icon stays blue. This setting is currently available on Windows.
+
+**Apply PDF icon** saves the selected color and registers Gravity's file icon. If PDFs currently use another app, it opens Windows Default Apps so you can choose Gravity for `.pdf`. Windows uses the default PDF handler's icon; choosing Gravity there replaces the other app's PDF icon.
+
+Choose **File → File Associations…** to select **PDF, PNG, JPEG (.jpg or .jpeg), or BMP**, then **Choose default app…**. On Gravity's Windows Default Apps page, select the file extension and choose Gravity. On older Windows versions, use the Default Apps page's file-type list. The dialog refreshes its status when you return. Images opened from Explorer or File → Open become new, unsaved PDF documents at image size; the source images are unchanged. Save creates a PDF. Gravity only offers these supported formats and leaves default-app confirmation to Windows.
 
 Command line: `Gravity.exe [file.pdf ...] [-page N] [--new-window]`
 

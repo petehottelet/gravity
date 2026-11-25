@@ -31,6 +31,7 @@ namespace Gravity.Tests
                 T("combine files, duplicate, blank page", CombineDuplicateBlank),
                 T("duplicate a base page keeps both copies", DuplicateBasePage),
                 T("undo and redo track modified state", UndoRedo),
+                T("live document save state", SaveState),
                 T("save over the open file", SaveInPlace),
                 T("unchanged save-as copies the original bytes", PristineCopy),
                 T("drag-move semantics (MovePages)", MoveSemantics),
@@ -43,6 +44,7 @@ namespace Gravity.Tests
                 T("distribution license notices", DistributionNotices),
                 T("bundled vector icons", IconTests.Run),
                 T("configurable icon colors", () => IconColorTests.Run(dir)),
+                T("accent colors and file associations", () => AppearanceTests.Run(dir)),
                 T("safe saves, search, exports, and image import", () => FeatureTests.Run(dir)),
             };
             foreach (var t in tests)
@@ -53,7 +55,7 @@ namespace Gravity.Tests
             if (!args.Contains("--no-ui"))
             {
                 Console.WriteLine("-- user interface (real window, synthetic mouse and keyboard messages)");
-                try { UiTest.Run(dir); FormTests.RunUI(dir); FeatureTests.RunUI(dir); TextEditingTests.RunUI(dir); IconColorTests.RunUI(); DialogTests.Run(); }
+                try { UiTest.Run(dir); FormTests.RunUI(dir); FeatureTests.RunUI(dir); TextEditingTests.RunUI(dir); IconColorTests.RunUI(); AppearanceTests.RunUI(dir); DialogTests.Run(); }
                 catch (Exception ex) { Fail("UI test threw " + ex); }
             }
             Console.WriteLine();
@@ -265,6 +267,48 @@ namespace Gravity.Tests
             doc.SetPages(doc.Pages.Take(2).ToList());
             Check(!doc.CanRedo, "new edit clears redo");
             Check(changes == 5, "Changed raised for every edit (" + changes + ")");
+        }
+
+        private static void SaveState()
+        {
+            string path = Path.Combine(dir, "save-state.pdf");
+            File.Copy(A, path, true);
+            var doc = new EditDoc(PdfSource.Open(path, null));
+            Check(doc.SaveState == DocumentSaveState.Original, "opened file starts Original");
+            doc.SetPages(doc.Pages.AsEnumerable().Reverse().ToList());
+            Check(doc.SaveState == DocumentSaveState.Unsaved, "page edits become Unsaved");
+            using (var locked = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
+            {
+                bool failed = false;
+                try { doc.SaveAs(path); } catch (IOException) { failed = true; }
+                Check(failed && doc.SaveState == DocumentSaveState.Unsaved, "failed save keeps Unsaved status");
+            }
+            doc.Undo();
+            Check(doc.SaveState == DocumentSaveState.Original, "undo after failed save returns to Original");
+            doc.Redo();
+            Check(doc.SaveState == DocumentSaveState.Unsaved, "redo restores Unsaved status");
+            doc.WriteFile(Path.Combine(dir, "save-state-export.pdf"));
+            Check(doc.SaveState == DocumentSaveState.Unsaved, "exporting a copy does not mark the document saved");
+            doc.SaveAs(path);
+            Check(doc.SaveState == DocumentSaveState.Saved, "successful save becomes Saved");
+            doc.SetPages(doc.Pages.AsEnumerable().Reverse().ToList());
+            Check(doc.SaveState == DocumentSaveState.Unsaved, "editing a saved document becomes Unsaved");
+            doc.Undo();
+            Check(doc.SaveState == DocumentSaveState.Saved, "undo to the saved version restores Saved");
+            doc.Redo();
+            Check(doc.SaveState == DocumentSaveState.Unsaved, "redo away from the saved version becomes Unsaved");
+            doc.Reload(PdfSource.Open(path, null));
+            Check(doc.SaveState == DocumentSaveState.Original, "reloading resets to Original");
+            doc.SaveAs(Path.Combine(dir, "save-state-copy.pdf"));
+            Check(doc.SaveState == DocumentSaveState.Saved, "unchanged Save As becomes Saved");
+            var untitled = new EditDoc(new List<PageRef>(), "Untitled");
+            Check(untitled.SaveState == DocumentSaveState.Unsaved, "empty new document starts Unsaved");
+            untitled.SetPages(new List<PageRef> { PageRef.Blank(612, 792) });
+            untitled.Undo();
+            Check(untitled.SaveState == DocumentSaveState.Unsaved, "new document remains Unsaved after undoing all edits");
+            untitled.Redo();
+            untitled.SaveAs(Path.Combine(dir, "save-state-new.pdf"));
+            Check(untitled.SaveState == DocumentSaveState.Saved, "first save of a new document becomes Saved");
         }
 
         private static void SaveInPlace()

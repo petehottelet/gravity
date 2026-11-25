@@ -100,7 +100,7 @@ namespace Gravity
                     var rr = new RectangleF(r.X + 0.5f, r.Y + 0.5f, r.Width - 1, r.Height + S(6));
                     using (var path = Theme.RoundRect(rr, S(7)))
                     {
-                        using (var b = new SolidBrush(sel ? Theme.TabActive : Color.FromArgb(0xEC, 0xED, 0xEF)))
+                        using (var b = new SolidBrush(sel ? Theme.TabActive : Theme.Hover))
                             g.FillPath(b, path);
                         if (sel)
                             using (var pen = new Pen(Theme.ChromeBorder))
@@ -132,14 +132,14 @@ namespace Gravity
                 if (sel || i == hover)
                 {
                     if (i == hover && hoverClose)
-                        using (var b = new SolidBrush(Color.FromArgb(0xDD, 0xDE, 0xE1)))
+                        using (var b = new SolidBrush(Theme.Pressed))
                             g.FillEllipse(b, cr);
                     LucideIcons.Draw(g, "x", Rectangle.Inflate(cr, -S(2), -S(2)), Theme.SubtleText);
                 }
             }
             var ar = AddRect;
             if (hoverAdd)
-                using (var b = new SolidBrush(Color.FromArgb(0xE3, 0xE4, 0xE7)))
+                using (var b = new SolidBrush(Theme.Hover))
                     g.FillEllipse(b, ar);
             LucideIcons.Draw(g, "plus", Rectangle.Inflate(ar, -S(3), -S(3)), Theme.SubtleText);
         }

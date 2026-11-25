@@ -142,10 +142,13 @@ namespace Gravity
     internal sealed class DocumentHeader : Control
     {
         public string DocumentTitle = "", DocumentState = "";
+        public readonly BrandMenuButton BrandAction;
         public DocumentHeader()
         {
             SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
             BackColor = Theme.Chrome; AccessibleRole = AccessibleRole.Grouping;
+            BrandAction = new BrandMenuButton { Dock = DockStyle.Left, Width = 144 };
+            Controls.Add(BrandAction);
         }
         protected override void WndProc(ref Message m)
         {
@@ -157,10 +160,6 @@ namespace Gravity
             var g = e.Graphics; float scale = g.DpiX / 96f;
             Func<float, int> s = value => (int)Math.Round(value * scale);
             g.Clear(Theme.Chrome); g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-            Theme.DrawTintedImage(g, Brand.Mark, new Rectangle(s(20), (Height - s(23)) / 2, s(23), s(23)), Theme.Text);
-            using (var brand = new Font("Segoe UI", 11.25f, FontStyle.Bold))
-                TextRenderer.DrawText(g, "Gravity", brand, new Rectangle(s(52), 0, s(100), Height), Theme.Text,
-                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
             int side = s(202), width = Math.Max(1, Width - side * 2);
             using (var title = new Font("Segoe UI Semibold", 9.75f))
             using (var subtitle = new Font("Segoe UI", 8.25f))
@@ -170,6 +169,39 @@ namespace Gravity
                 TextRenderer.DrawText(g, DocumentState, subtitle, new Rectangle(side, Height / 2 + s(3), width, s(17)), Theme.SubtleText,
                     TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
             }
+        }
+    }
+
+    internal sealed class BrandMenuButton : Button
+    {
+        private bool hovered, pressed;
+        public BrandMenuButton()
+        {
+            FlatStyle = FlatStyle.Flat; FlatAppearance.BorderSize = 0; TabStop = true;
+            BackColor = Theme.Chrome; AccessibleRole = AccessibleRole.PushButton;
+            AccessibleName = "Gravity: Show application menus";
+            SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint, true);
+        }
+        protected override void OnMouseEnter(EventArgs e) { hovered = true; Invalidate(); base.OnMouseEnter(e); }
+        protected override void OnMouseLeave(EventArgs e) { hovered = pressed = false; Invalidate(); base.OnMouseLeave(e); }
+        protected override void OnMouseDown(MouseEventArgs e) { pressed = e.Button == MouseButtons.Left; Invalidate(); base.OnMouseDown(e); }
+        protected override void OnMouseUp(MouseEventArgs e) { pressed = false; Invalidate(); base.OnMouseUp(e); }
+        protected override void OnKeyDown(KeyEventArgs e) { if (e.KeyCode == Keys.Space) { pressed = true; Invalidate(); } base.OnKeyDown(e); }
+        protected override void OnKeyUp(KeyEventArgs e) { pressed = false; Invalidate(); base.OnKeyUp(e); }
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            var g = e.Graphics; float scale = g.DpiX / 96f;
+            Func<float, int> s = value => (int)Math.Round(value * scale);
+            g.Clear(Theme.Chrome); g.SmoothingMode = SmoothingMode.AntiAlias;
+            var bounds = new Rectangle(s(12), s(6), Width - s(24), Height - s(12));
+            if (hovered || pressed)
+                using (var path = Theme.RoundRect(bounds, s(6)))
+                using (var brush = new SolidBrush(pressed ? Color.FromArgb(0xD4, 0xE1, 0xF1) : Color.FromArgb(0xE2, 0xE8, 0xF0))) g.FillPath(brush, path);
+            Theme.DrawTintedImage(g, Brand.Mark, new Rectangle(s(20), (Height - s(23)) / 2, s(23), s(23)), Theme.Text);
+            using (var font = new Font("Segoe UI", 11.25f, FontStyle.Bold))
+                TextRenderer.DrawText(g, "Gravity", font, new Rectangle(s(52), 0, Width - s(60), Height), Theme.Text,
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+            if (Focused && ShowFocusCues) ControlPaint.DrawFocusRectangle(g, bounds, Theme.Accent, Theme.Chrome);
         }
     }
 

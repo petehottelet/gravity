@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
@@ -10,6 +11,7 @@ namespace Gravity
         private CaptionButton minimizeWindow, maximizeWindow, closeWindow;
         private int pressedCaption;
         private Rectangle restoreWindowBounds;
+        private readonly Dictionary<Control, ResizeEdgeWindow> resizeWindows = new Dictionary<Control, ResizeEdgeWindow>();
 
         protected override CreateParams CreateParams
         {
@@ -36,6 +38,52 @@ namespace Gravity
             shellHeader.Resize += delegate { LayoutWindowChrome(); };
             Resize += delegate { LayoutWindowChrome(); };
             LayoutWindowChrome();
+            HookResizeEdges(this);
+        }
+
+        private void HookResizeEdges(Control control)
+        {
+            if (resizeWindows.ContainsKey(control)) return;
+            var window = new ResizeEdgeWindow(this, control);
+            resizeWindows.Add(control, window);
+            control.ControlAdded += delegate(object sender, ControlEventArgs e) { HookResizeEdges(e.Control); };
+            control.Disposed += delegate { window.Dispose(); resizeWindows.Remove(control); };
+            foreach (Control child in control.Controls) HookResizeEdges(child);
+        }
+
+        // Child HWNDs normally consume hit tests before the form can see its resize
+        // border. Let only the outer resize band pass through to the native frame.
+        private sealed class ResizeEdgeWindow : NativeWindow, IDisposable
+        {
+            private readonly MainForm owner;
+            private readonly Control control;
+            public ResizeEdgeWindow(MainForm owner, Control control)
+            {
+                this.owner = owner; this.control = control;
+                if (control == owner) return;
+                control.HandleCreated += HandleCreated;
+                control.HandleDestroyed += HandleDestroyed;
+                if (control.IsHandleCreated) AssignHandle(control.Handle);
+            }
+            private void HandleCreated(object sender, EventArgs e) { AssignHandle(control.Handle); }
+            private void HandleDestroyed(object sender, EventArgs e) { ReleaseHandle(); }
+            protected override void WndProc(ref Message m)
+            {
+                if (m.Msg == 0x84 && control.FindForm() == owner && !owner.IsDisposed)
+                {
+                    long coordinates = m.LParam.ToInt64();
+                    var point = new Point((short)(coordinates & 0xffff), (short)((coordinates >> 16) & 0xffff));
+                    int hit = owner.WindowHitTest(point);
+                    if (hit >= 10 && hit <= 17) { m.Result = (IntPtr)(-1); return; }
+                }
+                base.WndProc(ref m);
+            }
+            public void Dispose()
+            {
+                control.HandleCreated -= HandleCreated;
+                control.HandleDestroyed -= HandleDestroyed;
+                ReleaseHandle();
+            }
         }
 
         private void LayoutWindowChrome()
@@ -45,8 +93,6 @@ namespace Gravity
             closeWindow.Bounds = new Rectangle(shellHeader.Width - width, 0, width, height);
             maximizeWindow.Bounds = new Rectangle(shellHeader.Width - width * 2, 0, width, height);
             minimizeWindow.Bounds = new Rectangle(shellHeader.Width - width * 3, 0, width, height);
-            headerTools.Dock = DockStyle.None;
-            headerTools.Bounds = new Rectangle(shellHeader.Width - width * 3 - S(64), 0, S(64), shellHeader.Height);
             maximizeWindow.Restore = WindowState == FormWindowState.Maximized;
             maximizeWindow.AccessibleName = maximizeWindow.Restore ? "Restore window" : "Maximize";
             maximizeWindow.Invalidate();
@@ -75,7 +121,7 @@ namespace Gravity
                 if (button != null && button.Visible && button.RectangleToScreen(button.ClientRectangle).Contains(screen)) return button.Hit;
             if (shellHeader != null && shellHeader.Visible && shellHeader.RectangleToScreen(shellHeader.ClientRectangle).Contains(screen))
             {
-                if (headerTools.RectangleToScreen(headerTools.ClientRectangle).Contains(screen)) return 1;
+                if (shellHeader.BrandAction.RectangleToScreen(shellHeader.BrandAction.ClientRectangle).Contains(screen)) return 1;
                 return 2; // HTCAPTION: native drag, double-click, system menu and snapping.
             }
             return 1;

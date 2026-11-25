@@ -1,6 +1,12 @@
 # Gravity
 
+<!-- impeccable:product-schema 1 -->
+
 ## Platform
+
+adaptive
+
+## Operating Context
 
 Native Windows desktop application in C# and Windows Forms, with a separate macOS application using AppKit and PDFKit. The current Lucide interface applies to Windows.
 

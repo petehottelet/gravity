@@ -11,8 +11,8 @@ namespace Gravity
     {
         private DocumentHeader shellHeader;
         private CommandBar commandBar;
-        private ToolStrip modeTools, contextTools, navigationTools, openingTools, headerTools;
-        private ToolStripButton bRead, bFind, bMenu, bOutline, bPages, bDuplicate, bEarlier, bLater;
+        private ToolStrip modeTools, contextTools, navigationTools, openingTools;
+        private ToolStripButton bRead, bFind, bMenu, bExpandedMenu, bOutline, bPages, bDuplicate, bEarlier, bLater;
         private ToolStripLabel selectionSummary;
         private ToolStripButton selectAllPages;
         private ToolStripDropDownButton contextMore;
@@ -100,7 +100,8 @@ namespace Gravity
             toolbar.ImageScalingSize = new Size(S(20), S(20)); toolbar.Font = new Font("Segoe UI", 9.5f); toolbar.TabStop = true;
             bFind = Btn("search", "Find in document (Ctrl+F)", FocusFind);
             bMenu = Btn("ellipsis", "Show application menus", delegate { SetApplicationMenus(!menuExpanded, true); });
-            foreach (var item in new[] { bSidebar, bOpen, bSave, bPrint, bUndo, bRedo, bFind, bMenu }) StyleShellItem(item, 44, 44);
+            bExpandedMenu = Btn("ellipsis", "Hide application menus", delegate { SetApplicationMenus(false, true); });
+            foreach (var item in new[] { bSidebar, bOpen, bSave, bPrint, bUndo, bRedo, bFind, bMenu, bExpandedMenu }) StyleShellItem(item, 44, 44);
             StyleShellItem(bOpen, 86, 44, "Open"); StyleShellItem(bSave, 86, 44, "Save");
             foreach (var item in new[] { bSave, bPrint, bUndo, bFind }) item.Alignment = ToolStripItemAlignment.Right;
             toolbar.Items.AddRange(new ToolStripItem[] { bSave, bPrint, bUndo, bFind });
@@ -108,8 +109,8 @@ namespace Gravity
             commandBar.Paint += delegate(object sender, PaintEventArgs e) { using (var pen = new Pen(Theme.ChromeBorder)) e.Graphics.DrawLine(pen, 0, commandBar.Height - 1, commandBar.Width, commandBar.Height - 1); };
             toolbar.Dock = DockStyle.None; toolbar.Width = S(268); toolbar.LayoutStyle = ToolStripLayoutStyle.HorizontalStackWithOverflow;
             commandBar.Controls.Add(toolbar);
-            openingTools = ShellTools(58); openingTools.Dock = DockStyle.None; openingTools.Width = S(166);
-            openingTools.Items.AddRange(new ToolStripItem[] { bSidebar, bOpen }); commandBar.Controls.Add(openingTools);
+            openingTools = ShellTools(58); openingTools.Dock = DockStyle.None; openingTools.Width = S(214);
+            openingTools.Items.AddRange(new ToolStripItem[] { bSidebar, bOpen, bMenu }); commandBar.Controls.Add(openingTools);
             modeTools = new SegmentStrip { AutoSize = false, Dock = DockStyle.None, GripStyle = ToolStripGripStyle.Hidden,
                 Padding = new Padding(S(3)), CanOverflow = false, TabStop = true, ImageScalingSize = new Size(S(20), S(20)),
                 Font = new Font("Segoe UI Semibold", 9.75f), Renderer = new RoundedRenderer { WhiteSelection = true }, LayoutStyle = ToolStripLayoutStyle.HorizontalStackWithOverflow };
@@ -132,6 +133,7 @@ namespace Gravity
                 StyleShellItem(item, 94, 44);
                 item.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
             }
+            menu.Items.Add(bExpandedMenu);
             commandBar.Controls.Add(menu);
             commandBar.Resize += delegate { LayoutLucideShell(); };
 
@@ -189,10 +191,8 @@ namespace Gravity
             saveStatus = new ToolStripStatusLabel { TextAlign = ContentAlignment.MiddleRight };
             documentStatus.Items.AddRange(new ToolStripItem[] { positionStatus, saveStatus }); host.Controls.Add(documentStatus);
             shellHeader = new DocumentHeader { Dock = DockStyle.Top, Height = S(55) };
-            headerTools = ShellTools(44); headerTools.Dock = DockStyle.Right; headerTools.Width = S(64);
-            headerTools.Padding = new Padding(S(4), S(3), S(12), S(3)); headerTools.CanOverflow = false;
-            bMenu.Margin = Padding.Empty;
-            bMenu.Alignment = ToolStripItemAlignment.Left; headerTools.Items.Add(bMenu); shellHeader.Controls.Add(headerTools);
+            shellHeader.BrandAction.Width = S(144);
+            shellHeader.BrandAction.Click += delegate { SetApplicationMenus(!menuExpanded, true); };
             BuildWindowChrome();
             tabStrip.Dock = DockStyle.Top; tabStrip.Height = S(34); Controls.Add(tabStrip);
             Controls.Add(commandBar); Controls.Add(shellHeader);
@@ -210,19 +210,20 @@ namespace Gravity
                 bool compact = ClientSize.Width < S(800);
                 toolbar.Width = S(ClientSize.Width < S(700) ? 220 : 268);
                 toolbar.Bounds = new Rectangle(commandBar.Width - toolbar.Width, 0, toolbar.Width, S(54));
-                openingTools.Bounds = new Rectangle(0, 0, S(166), S(54));
+                openingTools.Bounds = new Rectangle(0, 0, S(214), S(54));
                 commandBar.Height = S(compact ? 106 : 60);
                 modeTools.Bounds = new Rectangle((commandBar.Width - S(238)) / 2, S(compact ? 57 : 5), S(238), S(44));
                 menu.Bounds = new Rectangle(0, 0, commandBar.Width, S(54));
-                int menuWidth = Math.Min(S(94), Math.Max(1, (menu.DisplayRectangle.Width - S(4) * menu.Items.Count) / menu.Items.Count));
-                foreach (ToolStripItem item in menu.Items) item.Width = menuWidth;
+                var entries = menu.Items.OfType<ToolStripMenuItem>().ToArray();
+                int menuWidth = Math.Min(S(94), Math.Max(1, (menu.DisplayRectangle.Width - S(48) - S(4) * entries.Length) / entries.Length));
+                foreach (ToolStripItem item in entries) item.Width = menuWidth;
             }
             finally { shellLayout = false; }
         }
 
         private void SetApplicationMenus(bool expanded, bool animate)
         {
-            foreach (ToolStripMenuItem item in menu.Items) item.HideDropDown();
+            foreach (var item in menu.Items.OfType<ToolStripMenuItem>()) item.HideDropDown();
             if (menuExpanded == expanded) return;
             bool returnFocus = menu.ContainsFocus || openingTools.ContainsFocus || toolbar.ContainsFocus || modeTools.ContainsFocus;
             commandBar.Transition(delegate
@@ -232,7 +233,7 @@ namespace Gravity
                 LayoutLucideShell();
             }, animate && !fullscreen && CommandBar.AnimationsEnabled,
                 expanded ? 250 : 180);
-            if (returnFocus) { headerTools.Focus(); bMenu.Select(); }
+            if (returnFocus) shellHeader.BrandAction.Focus();
         }
 
         private void UpdateApplicationMenus(bool has)
@@ -240,8 +241,9 @@ namespace Gravity
             menu.Visible = menuExpanded && !fullscreen;
             openingTools.Visible = toolbar.Visible = !menuExpanded && !fullscreen;
             modeTools.Visible = has && !menuExpanded && !fullscreen;
-            bMenu.Checked = menuExpanded;
+            bMenu.Checked = bExpandedMenu.Checked = menuExpanded;
             bMenu.ToolTipText = bMenu.AccessibleName = menuExpanded ? "Hide application menus" : "Show application menus";
+            shellHeader.BrandAction.AccessibleName = "Gravity: " + bMenu.AccessibleName;
         }
 
         private void ShowNavigation(bool pages)

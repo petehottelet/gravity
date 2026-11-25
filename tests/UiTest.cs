@@ -189,7 +189,7 @@ namespace Gravity.Tests
                 "centered document identity reflects the active document and real page count");
             var headerMenu = Field<ToolStripButton>(form, "bMenu");
             Check(headerMenu.Placement == ToolStripItemPlacement.Main && headerMenu.Owner.ClientRectangle.Contains(headerMenu.Bounds),
-                "application menus remain visible in the header without an overflow stub");
+                "application menu toggle remains visible beside Open without an overflow stub");
             ApplicationMenuTests(true);
             WindowChromeTests();
             CapturePanel("nested-outline-and-tabs");
@@ -657,14 +657,28 @@ namespace Gravity.Tests
             var bar = Field<CommandBar>(form, "commandBar");
             var menu = Field<MenuStrip>(form, "menu");
             var toggle = Field<ToolStripButton>(form, "bMenu");
+            var expandedToggle = Field<ToolStripButton>(form, "bExpandedMenu");
+            var brand = Field<DocumentHeader>(form, "shellHeader").BrandAction;
             var opening = Field<ToolStrip>(form, "openingTools");
             var commands = Field<ToolStrip>(form, "toolbar");
             var modes = Field<ToolStrip>(form, "modeTools");
             var content = Field<Control>(form, "content");
             var originalSize = form.Size;
+            Click(brand, new Point(brand.Width / 2, brand.Height / 2));
+            Check(PumpUntil(() => !bar.IsTransitioning, 700) && menu.Visible && toggle.Checked,
+                "clicking the Gravity logo opens the same application menus");
+            Check(brand.AccessibilityObject.Role == AccessibleRole.PushButton && brand.AccessibleName.Contains("Hide"),
+                "Gravity logo exposes a named keyboard-accessible menu button");
+            brand.AccessibilityObject.DoDefaultAction();
+            Check(PumpUntil(() => !bar.IsTransitioning, 700) && !menu.Visible,
+                "the accessible logo action closes the application menus");
             foreach (int width in new[] { 1200, 800, form.MinimumSize.Width })
             {
                 form.Width = width; Pump(30);
+                var open = Field<ToolStripButton>(form, "bOpen");
+                Check(toggle.Owner == opening && toggle.Bounds.Left >= open.Bounds.Right &&
+                    toggle.Bounds.Left - open.Bounds.Right <= 6 && opening.ClientRectangle.Contains(toggle.Bounds),
+                    "dots sit directly after Open at width " + width);
                 var contentBounds = content.Bounds; var barBounds = bar.Bounds;
                 toggle.PerformClick();
                 Check(bar.IsTransitioning == CommandBar.AnimationsEnabled, "menu fade follows Windows animation preferences");
@@ -678,13 +692,13 @@ namespace Gravity.Tests
                     !string.IsNullOrEmpty(item.AccessibleName)), "all six labeled menu icons fit without overflow at width " + width);
                 Check(toggle.Checked && toggle.AccessibleName == "Hide application menus", "dot button announces the expanded state");
                 CaptureCommandBar((hasDocument ? "document" : "home") + "-menus-" + width);
-                toggle.PerformClick();
+                expandedToggle.PerformClick();
                 Check(PumpUntil(() => !bar.IsTransitioning, 700), "menu exit finishes promptly");
                 Check(!menu.Visible && opening.Visible && commands.Visible && modes.Visible == hasDocument && !toggle.Checked,
                     "closing menus restores the original commands and document mode");
                 Check(content.Bounds == contentBounds && bar.Bounds == barBounds, "closing menus does not shift the document");
             }
-            toggle.PerformClick(); Pump(35); toggle.PerformClick(); Pump(25); toggle.PerformClick();
+            brand.PerformClick(); Pump(35); brand.PerformClick(); Pump(25); brand.PerformClick();
             Check(PumpUntil(() => !bar.IsTransitioning, 700) && menu.Visible && toggle.Checked,
                 "rapid toggling settles on the most recent menu state");
             Call(form, "SetApplicationMenus", false, false);
@@ -767,6 +781,7 @@ namespace Gravity.Tests
             Check(max.AccessibilityObject.Role == AccessibleRole.PushButton && close.AccessibilityObject.Name == "Close",
                 "flat caption controls are named native accessible buttons");
             WindowFramePaintTests();
+            WindowResizeEdgeTests();
             var bounds = form.Bounds;
             max.AccessibilityObject.DoDefaultAction(); Pump(60);
             Check(form.WindowState == FormWindowState.Maximized && max.AccessibleName == "Restore window" && form.Bounds == Screen.FromControl(form).WorkingArea,
@@ -818,6 +833,28 @@ namespace Gravity.Tests
             form.Text = "Window frame regression";
             checkSurface("changing the taskbar title does not draw a native title strip");
             form.Text = title;
+        }
+
+        private static void WindowResizeEdgeTests()
+        {
+            int right = form.ClientSize.Width - 2, bottom = form.ClientSize.Height - 2;
+            var positions = new[] { new Point(1, 1), new Point(right / 2, 1), new Point(right, 1),
+                new Point(1, bottom / 2), new Point(right, bottom / 2), new Point(1, bottom),
+                new Point(right / 2, bottom), new Point(right, bottom), new Point(60, 1), new Point(right - 20, 1) };
+            int[] expected = { 13, 12, 14, 10, 11, 16, 15, 17, 12, 12 };
+            for (int i = 0; i < positions.Length; i++)
+            {
+                Point screen = form.PointToScreen(positions[i]);
+                Control target = form, child;
+                while ((child = target.GetChildAtPoint(target.PointToClient(screen), GetChildAtPointSkip.Invisible)) != null) target = child;
+                int hit = SendMessage(target.Handle, 0x84, IntPtr.Zero, LParam(screen)).ToInt32();
+                Check((target == form ? hit == expected[i] : hit == -1) &&
+                    (int)Call(form, "WindowHitTest", screen) == expected[i],
+                    "outer resize target " + i + " passes through covering controls to the native frame");
+            }
+            var brand = Field<DocumentHeader>(form, "shellHeader").BrandAction;
+            Check((int)Call(form, "WindowHitTest", brand.PointToScreen(new Point(brand.Width / 2, brand.Height / 2))) == 1,
+                "logo receives clicks while the outer edge remains resizable");
         }
 
         private static void Eq(string expected, string actual, string what)

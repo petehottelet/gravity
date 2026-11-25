@@ -37,7 +37,7 @@ Read PDFs, fill existing form fields, and rearrange, combine, cut, copy and past
 
 The following reading and page-organizing controls describe the Windows app. macOS coverage is listed below.
 
-The Windows interface uses bundled Lucide icons, a **Read / Organize** switch, and a shared **Outline / Pages** sidebar. The top-right **…** button fades the command row into labeled **File / Edit / View / Go / Pages / Help** menus; toggle it again to restore Open and the document controls. The row stays in place, and Windows animation preferences are respected. F10, menu access keys, the command palette, and keyboard shortcuts remain available. Primary controls use rounded targets, with page-specific commands above the document and save state below it.
+The Windows interface uses bundled Lucide icons, a **Read / Organize** switch, and a shared **Outline / Pages** sidebar. Click the **Gravity logo** or the **…** button beside **Open** to fade the command row into labeled **File / Edit / View / Go / Pages / Help** menus. Click the logo again or the dots after Help to restore Open and the document controls. The row stays in place, and Windows animation preferences are respected. F10, menu access keys, the command palette, and keyboard shortcuts remain available. Primary controls use rounded targets, with page-specific commands above the document and save state below it. Drag any outer window edge or corner to resize.
 
 **Reading**
 - Continuous scrolling, or one page (or spread) at a time. Single, facing, and book (cover alone) layouts.

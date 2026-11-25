@@ -508,6 +508,13 @@ namespace Gravity
         public bool CanUndo { get { return undo.Count > 0; } }
         public bool CanRedo { get { return redo.Count > 0; } }
 
+        // Snapshot edits retain the full catalog in a new source. Navigation must
+        // follow the current page sources, including when undo restores an older one.
+        public PdfSource OutlineSource
+        {
+            get { return Base != null && Pages.Any(page => page.Src == Base) ? Base : Pages.Select(page => page.Src).FirstOrDefault(source => source != null); }
+        }
+
         public void SetPages(List<PageRef> newPages)
         {
             undo.Add(Pages);
@@ -592,7 +599,7 @@ namespace Gravity
             {
                 // Form edits create immutable full-document snapshots. Use that
                 // snapshot's catalog when no pages still refer to the saved base.
-                var basis = Base != null && Pages.Any(p => p.Src == Base) ? Base : Pages.Select(p => p.Src).FirstOrDefault(s => s != null);
+                var basis = OutlineSource;
                 if (IsPristineCopy(basis))
                 {
                     basis.WriteOriginalBytes(output);
@@ -715,6 +722,48 @@ namespace Gravity
                         var fresh = PdfSource.FromBytes(bytes.ToArray(), password);
                         SetPages(AllPages(fresh));
                     }
+                }
+                finally { working.Dispose(); }
+            }
+        }
+
+        /// <summary>Replaces text in an independent document snapshot as one undoable edit.</summary>
+        public void EditText(int pageIndex, IList<PdfTextEdit> edits)
+        {
+            if (pageIndex < 0 || pageIndex >= Pages.Count) throw new ArgumentOutOfRangeException("pageIndex");
+            if (edits == null) throw new ArgumentNullException("edits");
+            var changes = edits.Where(edit => edit == null || edit.Text != edit.Original).ToList();
+            if (changes.Count == 0) return;
+            lock (Pdfium.Lock)
+            {
+                if (!PdfTextEditing.CanEdit(Pages[pageIndex]))
+                    throw new InvalidOperationException("This page does not allow text editing.");
+                string password = Base != null ? Base.Password : null;
+                PdfSource working;
+                using (var bytes = new MemoryStream())
+                {
+                    WritePdf(bytes);
+                    working = PdfSource.FromBytes(bytes.ToArray(), password);
+                }
+                try
+                {
+                    PdfTextEditing.Apply(working.GetPage(pageIndex), changes);
+                    var expected = PdfTextEditing.Read(new PageRef(working, pageIndex, 0)).Select(run => run.Text).ToArray();
+                    PdfSource fresh;
+                    using (var bytes = new MemoryStream())
+                    {
+                        Pdfium.SaveDocument(working.Doc, bytes);
+                        fresh = PdfSource.FromBytes(bytes.ToArray(), password);
+                    }
+                    bool valid;
+                    try { valid = expected.SequenceEqual(PdfTextEditing.Read(new PageRef(fresh, pageIndex, 0)).Select(run => run.Text)); }
+                    catch { fresh.Dispose(); throw; }
+                    if (!valid)
+                    {
+                        fresh.Dispose();
+                        throw new InvalidOperationException("This PDF could not preserve the replacement text. No changes were applied.");
+                    }
+                    SetPages(AllPages(fresh));
                 }
                 finally { working.Dispose(); }
             }

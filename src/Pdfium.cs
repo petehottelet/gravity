@@ -86,6 +86,14 @@ namespace Gravity
         [DllImport(Dll, CallingConvention = CC)] public static extern void FPDFPageObj_Transform(IntPtr obj, double a, double b, double c, double d, double e, double f);
         [DllImport(Dll, CallingConvention = CC)] public static extern void FPDFPage_InsertObject(IntPtr page, IntPtr obj);
         [DllImport(Dll, CallingConvention = CC)] public static extern int FPDFPage_GenerateContent(IntPtr page);
+        [DllImport(Dll, CallingConvention = CC)] public static extern int FPDFPage_CountObjects(IntPtr page);
+        [DllImport(Dll, CallingConvention = CC)] public static extern IntPtr FPDFPage_GetObject(IntPtr page, int index);
+        [DllImport(Dll, CallingConvention = CC)] public static extern int FPDFPageObj_GetType(IntPtr obj);
+        [DllImport(Dll, CallingConvention = CC)] public static extern int FPDFPageObj_GetBounds(IntPtr obj, out float left, out float bottom, out float right, out float top);
+        [DllImport(Dll, CallingConvention = CC)] public static extern int FPDFPage_RemoveObject(IntPtr page, IntPtr obj);
+        [DllImport(Dll, CallingConvention = CC)] public static extern uint FPDFTextObj_GetText(IntPtr obj, IntPtr textPage, byte[] buffer, uint length);
+        [DllImport(Dll, CallingConvention = CC)] public static extern int FPDFTextObj_GetFontSize(IntPtr obj, out float size);
+        [DllImport(Dll, CallingConvention = CC)] public static extern IntPtr FPDFText_GetTextObject(IntPtr textPage, int index);
 
         // ---- fpdf_text.h ---------------------------------------------------
         [DllImport(Dll, CallingConvention = CC)] public static extern IntPtr FPDFText_LoadPage(IntPtr page);

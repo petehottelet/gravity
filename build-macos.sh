@@ -7,11 +7,13 @@ if [[ "$(uname -s)" != Darwin ]]; then
 fi
 test_app=false
 package=false
+snapshots=false
 for argument in "$@"; do
   case "$argument" in
     --test) test_app=true ;;
     --package) package=true ;;
-    *) echo "Usage: bash build-macos.sh [--test] [--package]" >&2; exit 2 ;;
+    --snapshots) snapshots=true; test_app=true ;;
+    *) echo "Usage: bash build-macos.sh [--test] [--package] [--snapshots]" >&2; exit 2 ;;
   esac
 done
 root="$(cd -- "$(dirname -- "$0")" && pwd)"
@@ -31,6 +33,7 @@ lipo -create "$work/Gravity-arm64" "$work/Gravity-x86_64" -output "$app/Contents
 cp "$root/macos/Info.plist" "$app/Contents/Info.plist"
 cp "$root/LICENSE" "$app/Contents/Resources/LICENSE"
 cp "$root/THIRD_PARTY_NOTICES.md" "$app/Contents/Resources/THIRD_PARTY_NOTICES.md"
+cp "$root/assets/g-mark.png" "$app/Contents/Resources/g-mark.png"
 icons="$work/Gravity.iconset"
 mkdir -p "$icons"
 for size in 16 32 128 256 512; do
@@ -42,7 +45,11 @@ iconutil -c icns "$icons" -o "$app/Contents/Resources/Gravity.icns"
 plutil -lint "$app/Contents/Info.plist"
 codesign --force --sign - --timestamp=none "$app"
 codesign --verify --strict "$app"
-if "$test_app"; then "$app/Contents/MacOS/Gravity" --self-test; fi
+if "$test_app"; then
+  test_args=(--self-test)
+  if "$snapshots"; then test_args+=(--ui-snapshots "$root/output/mac-ui"); fi
+  "$app/Contents/MacOS/Gravity" "${test_args[@]}"
+fi
 if "$package"; then
   mkdir -p "$root/dist"
   ditto -c -k --keepParent "$app" "$root/dist/Gravity-1.0.0-mac-universal.zip"

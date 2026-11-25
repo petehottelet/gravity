@@ -52,7 +52,7 @@ namespace Gravity
         private HomeView home;
         private SearchPanel searchPanel;
         private readonly Timer findTimer = new Timer { Interval = 300 };
-        private ToolStripMenuItem miExport, miInsertImages;
+        private ToolStripMenuItem miExport, miInsertImages, miEditText;
         private ContextMenuStrip viewMenu, organizerMenu;
 
         private ToolStripButton bOpen, bSave, bPrint, bUndo, bRedo, bSidebar, bOrganize, bPrev, bNext, bZoomOut, bZoomIn, bRotL, bRotR,
@@ -110,6 +110,7 @@ namespace Gravity
                 if (organizer.Visible) organizer.Invalidate();
             };
             BuildUi();
+            ApplyIconColor(settings.IconColorHex);
             RestoreWindow();
             reloadTimer.Tick += OnReloadTimer;
             AllowDrop = true;
@@ -488,6 +489,26 @@ namespace Gravity
             FocusCanvas();
         }
 
+        private void EditPageText()
+        {
+            if (active == null || Organizing || presentationMode) return;
+            int pageIndex, selected;
+            view.GetTextEditTarget(out pageIndex, out selected);
+            if (pageIndex < 0 || pageIndex >= active.Doc.Pages.Count) return;
+            var document = active.Doc;
+            var page = document.Pages[pageIndex];
+            try
+            {
+                lock (Pdfium.Lock)
+                    if (page.Src != null && !PdfTextEditing.CanEdit(page))
+                    { Toast("This PDF does not allow text editing."); return; }
+                using (var editor = new TextEditor(page, pageIndex, selected, edits => document.EditText(pageIndex, edits)))
+                    if (editor.ShowDialog(this) == DialogResult.OK) Toast("Text updated — Ctrl+Z to undo. Save to keep changes.");
+            }
+            catch (Exception ex) { MessageBox.Show(this, ex.Message, "Could not edit text", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+            FocusCanvas();
+        }
+
         private void BuildMenu()
         {
             menu = new MenuStrip { Renderer = new FlatRenderer(), BackColor = Theme.Chrome, Padding = new Padding(S(4), S(2), 0, S(2)), Font = new Font("Segoe UI", 9f) };
@@ -517,8 +538,9 @@ namespace Gravity
             miFind = MI("&Find…", "Ctrl+F", FocusFind);
             miFindNext = MI("Find &Next", "F3", () => FindNext(true));
             miFindPrev = MI("Find Pre&vious", "Shift+F3", () => FindNext(false));
+            miEditText = MI("Edit &Text…", "Ctrl+Shift+T", EditPageText);
             edit.DropDownItems.AddRange(new ToolStripItem[] { miUndo, miRedo, new ToolStripSeparator(), miCopyText, miSelectAll, new ToolStripSeparator(), miFind, miFindNext, miFindPrev,
-                new ToolStripSeparator(), MI("Fill &Form…", "Ctrl+Shift+F", () => FillForm(view.CurrentPage, -1)) });
+                new ToolStripSeparator(), miEditText, MI("Fill &Form…", "Ctrl+Shift+F", () => FillForm(view.CurrentPage, -1)) });
 
             var viewM = new ToolStripMenuItem("&View");
             miOrganize = MI("&Organize Pages", "Ctrl+E", ToggleOrganize);
@@ -542,6 +564,7 @@ namespace Gravity
                 miOrganize, new ToolStripSeparator(), miSingle, miFacing, miBook, miContinuous, new ToolStripSeparator(),
                 miFitPage, miFitWidth, miActual, miZoomIn, miZoomOut, new ToolStripSeparator(), miRotL, miRotR, new ToolStripSeparator(),
                 miBookmarks, miPagePanel, miFullscreen, miPresentation,
+                new ToolStripSeparator(), MI("Icon &Color…", null, ChooseIconColor),
             });
 
             var go = new ToolStripMenuItem("&Go");
@@ -595,7 +618,7 @@ namespace Gravity
             var vPaste = MI("Paste Pages After This Page", "Ctrl+V", () => PastePages(false));
             viewMenu.Items.AddRange(new ToolStripItem[]
             {
-                vCopy, vSelAll, new ToolStripSeparator(),
+                vCopy, vSelAll, MI("Edit Text…", "Ctrl+Shift+T", EditPageText), new ToolStripSeparator(),
                 MI("Organize Pages", "Ctrl+E", ToggleOrganize), MI("Go to Page…", "Ctrl+G", FocusPageBox), new ToolStripSeparator(),
                 MI("Cut This Page", null, CutPages), MI("Copy This Page", null, CopyPages), vPaste, MI("Delete This Page", null, DeletePages),
                 MI("Rotate This Page Left", "Ctrl+[", () => RotatePages(-1)), MI("Rotate This Page Right", "Ctrl+]", () => RotatePages(1)),
@@ -912,7 +935,7 @@ namespace Gravity
             finally { syncingPages = false; }
             pendingSelection = null;
             SyncPageSelection();
-            if (doc.Base != tocBase) { LoadToc(); ApplySidebar(); }
+            if (doc.OutlineSource != tocBase) { LoadToc(); ApplySidebar(); }
             UpdateUI();
         }
 
@@ -1527,7 +1550,7 @@ namespace Gravity
             outlineVersion = -1;
             toc.BeginUpdate();
             toc.Nodes.Clear();
-            tocBase = active != null ? active.Doc.Base : null;
+            tocBase = active != null ? active.Doc.OutlineSource : null;
             if (tocBase != null)
             {
                 List<OutlineItem> items;
@@ -1797,6 +1820,7 @@ namespace Gravity
                 case Keys.Control | Keys.Shift | Keys.E: TogglePagePanel(); return true;
                 case Keys.Control | Keys.F: FocusFind(); return true;
                 case Keys.Control | Keys.Shift | Keys.F: FillForm(view.CurrentPage, -1); return true;
+                case Keys.Control | Keys.Shift | Keys.T: EditPageText(); return true;
                 case Keys.F3: FindNext(true); return true;
                 case Keys.Shift | Keys.F3: FindNext(false); return true;
                 case Keys.Control | Keys.G: FocusPageBox(); return true;
@@ -1982,6 +2006,7 @@ namespace Gravity
                 miUndo.Enabled = bUndo.Enabled;
                 miRedo.Enabled = bRedo.Enabled;
                 bool read = has && !org;
+                miEditText.Enabled = read && n > 0 && !presentationMode;
                 miCopyText.Enabled = read && view.HasSelection;
                 miSelectAll.Enabled = miFind.Enabled = miFindNext.Enabled = miFindPrev.Enabled = read;
                 miOrganize.Enabled = has && !presentationMode;

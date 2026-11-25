@@ -20,6 +20,15 @@ namespace Gravity
         private readonly float dpi;
         private readonly ContextMenuStrip recentMenu = new ContextMenuStrip();
         private string menuPath;
+        private Bitmap coloredLockup;
+
+        public void SetIconColor(string hex)
+        {
+            var replacement = Brand.Lockup == null ? null : IconColor.Tint(Brand.Lockup, IconColor.Parse(hex));
+            if (coloredLockup != null) coloredLockup.Dispose();
+            coloredLockup = replacement;
+            Invalidate();
+        }
 
         private static readonly object OpenAction = new object(), CombineAction = new object();
 
@@ -139,7 +148,7 @@ namespace Gravity
         /// <summary>The logo lockup (icon + GRAVITY wordmark) scaled to a height; returns its width.</summary>
         private int DrawLockup(Graphics g, int x, int y, int height)
         {
-            var img = Brand.Lockup;
+            var img = coloredLockup ?? Brand.Lockup;
             if (img == null) return 0;
             int width = (int)Math.Round(img.Width * (double)height / img.Height);
             var oldMode = g.InterpolationMode;
@@ -192,7 +201,11 @@ namespace Gravity
 
         protected override void Dispose(bool disposing)
         {
-            if (disposing) recentMenu.Dispose();
+            if (disposing)
+            {
+                recentMenu.Dispose();
+                if (coloredLockup != null) { coloredLockup.Dispose(); coloredLockup = null; }
+            }
             base.Dispose(disposing);
         }
     }

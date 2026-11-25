@@ -145,6 +145,7 @@ enum MacTests {
             try check(document.windowControllers.first?.document === document, "window controller belongs to the document")
             try check(document.windowControllers.first?.window != nil, "native window is constructed")
             document.windowControllers.forEach { $0.close() }
+            try WorkspaceTests.run { condition, name in try check(condition, name) }
             print("All \(count) macOS checks passed.")
             return 0
         } catch {

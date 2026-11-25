@@ -321,3 +321,15 @@ The lower status strip reports page position or selection count on the left. Rea
 - **Don't** add duplicate editing controls to the Pages rail.
 - **Don't** copy sample filenames or chapter titles into actual document metadata.
 - **Don't** infer full accessibility conformance from contrast targets or control styling.
+
+## macOS workspace
+
+The AppKit/PDFKit application carries the same document-first hierarchy, cool neutral palette, distinct blue selections, and equal Read/Organize modes. Preserve native Mac traffic lights, resizing, document tabs, menu bar, Command shortcuts, and field editing. SF Symbols and the system font translate the line-icon vocabulary and typography to macOS. The actual G artwork is bundled locally. The workspace explicitly uses a light AppKit appearance so fields, PDFKit, and authored surfaces remain consistent.
+
+Dimensions are native points. A 48-point document identity row sits beneath the native title bar. The 60-point command row contains Open, a centered 238 × 44 mode track, Find, Undo, Print, and Save. Below 820 points, the mode track occupies a second row in a 104-point command area. Primary commands have 44-point targets; task actions use 40-point targets. Keep visible focus rings, native button roles, named icon actions, and disabled states for unavailable operations.
+
+The sidebar is 236 points wide, narrows to 210 below 1000 points, and hides below 700 points without changing the user's visibility preference. Outline uses the PDF's actual hierarchy and page destinations; an empty outline says that the document has no bookmarks. Pages is a single-column navigator, with no editing toolbar. Choosing Pages returns to reading. Native collection views provide selection, scrolling, and keyboard navigation.
+
+The reading toolbar contains the page field, previous/next controls, zoom presets and Fit Page, and Fill Form when space permits. The menu and shortcut retain Fill Form at smaller widths. Find expands into a separate row with match feedback and a close action. The organizer uses 150 × 190 thumbnail frames with captions outside the selected area. Selection has a pale-blue fill, blue boundary, and check mark; the page rail omits the check. Thumbnails preserve page proportions and use a bounded cache.
+
+Rotate, Duplicate, and Delete remain visible. Below 680 points of workspace width they wrap beneath the selection summary, in a 100-point task row. Movement buttons appear from 800 workspace points; More always retains access to additional page actions. The minimum native window is 560 × 440 points. A 30-point status strip reports reading position or selection count, while the header distinguishes Saved, Unsaved changes, and Not saved yet. Save and undo state come from the document and its undo manager.

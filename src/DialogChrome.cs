@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
 namespace Gravity
@@ -10,7 +11,9 @@ namespace Gravity
     internal class GravityDialog : Form
     {
         internal readonly Panel Content;
+        internal const int CornerRadius = 8;
         private readonly DialogHeading heading;
+        private bool nativeCorners;
 
         internal GravityDialog(string title, int width, int height)
         {
@@ -38,6 +41,46 @@ namespace Gravity
         protected override CreateParams CreateParams
         {
             get { var parameters = base.CreateParams; parameters.Style &= ~0x00c00000; return parameters; }
+        }
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            nativeCorners = TryRoundNativeWindow();
+            UpdateWindowShape();
+        }
+
+        protected virtual bool TryRoundNativeWindow()
+        {
+            // Match the main window's Windows 11 corners and retain its native shadow.
+            try { int corners = 2; return DwmSetWindowAttribute(Handle, 33, ref corners, sizeof(int)) == 0; }
+            catch (DllNotFoundException) { return false; }
+            catch (EntryPointNotFoundException) { return false; }
+        }
+
+        [DllImport("dwmapi.dll")]
+        private static extern int DwmSetWindowAttribute(IntPtr window, int attribute, ref int value, int size);
+
+        protected override void OnSizeChanged(EventArgs e)
+        {
+            base.OnSizeChanged(e);
+            UpdateWindowShape();
+        }
+
+        private void UpdateWindowShape()
+        {
+            if (!IsHandleCreated || Width <= 0 || Height <= 0) return;
+            Region previous = Region;
+            if (nativeCorners || WindowState == FormWindowState.Maximized) Region = null;
+            else
+            {
+                // Windows 10 does not support the DWM corner preference.
+                using (var graphics = CreateGraphics())
+                using (var shape = Theme.RoundRect(new RectangleF(0, 0, Width, Height), CornerRadius * graphics.DpiX / 96f))
+                    Region = new Region(shape);
+            }
+            if (previous != null) previous.Dispose();
+            Invalidate();
         }
 
         protected override void OnLoad(EventArgs e)
@@ -100,7 +143,9 @@ namespace Gravity
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
-            using (var pen = new Pen(Theme.ChromeBorder)) e.Graphics.DrawRectangle(pen, 0, 0, Width - 1, Height - 1);
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            using (var shape = Theme.RoundRect(new RectangleF(0.5f, 0.5f, Width - 1, Height - 1), CornerRadius * e.Graphics.DpiX / 96f))
+            using (var pen = new Pen(Theme.ChromeBorder)) e.Graphics.DrawPath(pen, shape);
         }
 
         protected override void WndProc(ref Message m)

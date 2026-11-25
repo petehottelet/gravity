@@ -14,6 +14,26 @@ namespace Gravity.Tests
         [DllImport("user32.dll")]
         private static extern IntPtr SendMessage(IntPtr window, int message, IntPtr wParam, IntPtr lParam);
 
+        [DllImport("dwmapi.dll")]
+        private static extern int DwmGetWindowAttribute(IntPtr window, int attribute, out int value, int size);
+
+        private sealed class FallbackDialog : GravityDialog
+        {
+            internal FallbackDialog() : base("Rounded dialog", 300, 200) { }
+            protected override bool TryRoundNativeWindow() { return false; }
+            internal void RecreateWindow() { RecreateHandle(); }
+        }
+
+        private static void CheckRoundedRegion(GravityDialog dialog, string name)
+        {
+            Region shape = dialog.Region;
+            int width = dialog.Width, height = dialog.Height;
+            SelfTest.Check(shape != null && !shape.IsVisible(0, 0) && !shape.IsVisible(width - 1, 0) &&
+                !shape.IsVisible(0, height - 1) && !shape.IsVisible(width - 1, height - 1), name + " clips all four outer corners");
+            SelfTest.Check(shape != null && shape.IsVisible(width / 2, 1) && shape.IsVisible(width / 2, height - 2) &&
+                shape.IsVisible(1, height / 2) && shape.IsVisible(width - 2, height / 2), name + " retains the straight window edges");
+        }
+
         private static IEnumerable<Control> Children(Control parent)
         {
             foreach (Control child in parent.Controls)
@@ -77,6 +97,17 @@ namespace Gravity.Tests
 
         internal static void Run()
         {
+            using (var fallback = new FallbackDialog())
+            {
+                Show(fallback); CheckRoundedRegion(fallback, "fallback dialog");
+                fallback.Size = new Size(420, 360); Application.DoEvents();
+                CheckRoundedRegion(fallback, "resized fallback dialog");
+                fallback.Scale(new SizeF(1.5f, 1.5f)); Application.DoEvents();
+                CheckRoundedRegion(fallback, "scaled fallback dialog");
+                fallback.RecreateWindow(); Application.DoEvents();
+                CheckRoundedRegion(fallback, "recreated fallback dialog");
+                fallback.Close();
+            }
             var fields = new List<PdfFormField> {
                 new PdfFormField { Index = 0, Type = 6, Name = "Guest", Label = "Guest name", Value = "Sample Guest" },
                 new PdfFormField { Index = 1, Type = 6, Name = "Performance", Label = "Performance", Value = "Evening show" },
@@ -86,6 +117,13 @@ namespace Gravity.Tests
             using (var editor = new FormEditor(fields, 0, 0))
             {
                 Show(editor); CheckLayout(editor, "form dialog"); Capture(editor, "form");
+                if (editor.Region != null) CheckRoundedRegion(editor, "form dialog");
+                else
+                {
+                    int preference;
+                    SelfTest.Check(DwmGetWindowAttribute(editor.Handle, 33, out preference, sizeof(int)) == 0 && preference == 2,
+                        "form dialog requests native rounded corners");
+                }
                 var input = Children(editor).OfType<TextBox>().First();
                 SelfTest.Check(input.Focused, "rounded form field receives initial keyboard focus");
                 input.SelectAll(); input.SelectedText = "Updated guest";

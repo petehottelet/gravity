@@ -7,7 +7,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -99,7 +98,7 @@ class MacBuildTests(unittest.TestCase):
         command = 'export PATH="$PWD/toolchain:$PATH"; bash build-macos.sh --test --package'
         result = subprocess.run(
             [find_bash(), "-c", command], cwd=self.root, env=env,
-            capture_output=True, text=True, timeout=60,
+            capture_output=True, text=True, timeout=60, check=False,
         )
         output = result.stdout + result.stderr
         for value in (str(self.root), self.root.as_posix()):

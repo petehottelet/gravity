@@ -16,10 +16,22 @@
   <key>CFBundleDocumentTypes</key>
   <array><dict>
     <key>CFBundleTypeName</key><string>PDF document</string>
+    <key>CFBundleTypeIconFile</key><string>GravityPdf.icns</string>
     <key>CFBundleTypeRole</key><string>Editor</string>
     <key>LSHandlerRank</key><string>Alternate</string>
     <key>LSItemContentTypes</key><array><string>com.adobe.pdf</string></array>
     <key>NSDocumentClass</key><string>GravityDocument</string>
+  </dict></array>
+  <key>UTImportedTypeDeclarations</key>
+  <array><dict>
+    <key>UTTypeIdentifier</key><string>com.adobe.pdf</string>
+    <key>UTTypeDescription</key><string>PDF document</string>
+    <key>UTTypeConformsTo</key><array><string>public.data</string><string>public.composite-content</string></array>
+    <key>UTTypeIconFile</key><string>GravityPdf.icns</string>
+    <key>UTTypeTagSpecification</key><dict>
+      <key>public.filename-extension</key><array><string>pdf</string></array>
+      <key>public.mime-type</key><string>application/pdf</string>
+    </dict>
   </dict></array>
 </dict>
 </plist>

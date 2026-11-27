@@ -4,9 +4,31 @@ import UniformTypeIdentifiers
 
 final class FormPDFView: PDFView {
     var editField: ((PDFAnnotation) -> Void)?
+    var placeText: ((PDFPage, NSPoint) -> Void)?
+    var editText: ((PDFAnnotation) -> Void)?
+    var cancelText: (() -> Void)?
+    var readerClicked: (() -> Void)?
+    var placingText = false { didSet { window?.invalidateCursorRects(for: self) } }
+
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        if placingText { addCursorRect(visibleRect, cursor: .crosshair) }
+    }
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
+        readerClicked?()
+        if placingText, let page = page(for: point, nearest: false) {
+            placeText?(page, convert(point, to: page))
+            return
+        }
+        if event.clickCount == 2, let page = page(for: point, nearest: false),
+           let annotation = page.annotations.reversed().first(where: {
+               PDFModel.isFreeText($0) && $0.shouldDisplay && $0.bounds.contains(convert(point, to: page))
+           }) {
+            editText?(annotation)
+            return
+        }
         if let page = page(for: point, nearest: false),
            let field = page.annotation(at: convert(point, to: page)),
            PDFModel.isWidget(field) {
@@ -17,6 +39,7 @@ final class FormPDFView: PDFView {
     }
 
     override func keyDown(with event: NSEvent) {
+        if event.keyCode == 53 && placingText { cancelText?(); return }
         // Keep widget editing in the form sheet, where it participates in undo.
         if event.keyCode == 48 {
             NSApp.sendAction(#selector(DocumentWindow.fillForm(_:)), to: nil, from: self)
@@ -57,6 +80,8 @@ final class DocumentWindow: NSWindowController, NSCollectionViewDataSource, NSCo
     private let organizerScroll = NSScrollView()
     private let brand = DocumentTheme.label("Gravity", size: 14, weight: .bold)
     private let brandMark = NSImageView()
+    private let applicationMenus = WorkspaceMenus()
+    private var menusExpanded = false
     private let titleLabel = DocumentTheme.label(size: 13, weight: .semibold)
     private let documentState = DocumentTheme.label(size: 11, color: DocumentTheme.muted)
     private let navigationTitle = DocumentTheme.label(size: 11, weight: .semibold, color: DocumentTheme.muted)
@@ -79,6 +104,8 @@ final class DocumentWindow: NSWindowController, NSCollectionViewDataSource, NSCo
     private var sidebarVisible = true
     private var searching = false
     private var updating = false
+    private var railSelectionActive = false
+    private var dragToken = UUID().uuidString
     private unowned let gravity: GravityDocument
     private var model: PDFModel { gravity.model }
     private static var pageClipboard: Data?
@@ -91,13 +118,14 @@ final class DocumentWindow: NSWindowController, NSCollectionViewDataSource, NSCo
         window.tabbingMode = .preferred
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
+        window.titlebarSeparatorStyle = .none
         window.backgroundColor = DocumentTheme.chrome
         // The approved light workspace includes PDFKit and native field editors.
         window.appearance = NSAppearance(named: .aqua)
         window.center()
         super.init(window: window)
         shouldCascadeWindows = true
-        window.setFrameAutosaveName("GravityDocument")
+        if !CommandLine.arguments.contains("--self-test") { window.setFrameAutosaveName("GravityDocument") }
 
         window.contentView = root
         root.arrange = { [weak self] in self?.layoutWorkspace() }
@@ -113,11 +141,10 @@ final class DocumentWindow: NSWindowController, NSCollectionViewDataSource, NSCo
         documentState.alignment = .center
         navigationCount.alignment = .right
         guidance.alignment = .right
-        if let url = Bundle.main.url(forResource: "g-mark", withExtension: "png") {
-            brandMark.image = NSImage(contentsOf: url)
-        }
+        brandMark.image = DocumentTheme.brandMark
         brandMark.imageScaling = .scaleProportionallyDown
         commands.bottomRule = true
+        header.draggable = true
         context.bottomRule = true
         sidebar.rightRule = true
         searchBar.bottomRule = true
@@ -129,13 +156,16 @@ final class DocumentWindow: NSWindowController, NSCollectionViewDataSource, NSCo
 
         add("sidebar", "", "sidebar.left", "Show or hide sidebar", #selector(toggleSidebar(_:)), to: commands)
         add("open", "Open", "folder", "Open PDF (Command+O)", #selector(openDocument(_:)), to: commands)
+        add("menu", "", "ellipsis", "Show application menus", #selector(toggleApplicationMenus(_:)), to: commands)
         add("read", "Read", "book", "Read document", #selector(showRead(_:)), to: modeTrack)
         add("organize", "Organize", "square.grid.2x2", "Organize pages", #selector(showOrganize(_:)), to: modeTrack)
         add("find", "", "magnifyingglass", "Find in document (Command+F)", #selector(find(_:)), to: commands)
         add("undo", "", "arrow.uturn.backward", "Undo (Command+Z)", #selector(undoEdit(_:)), to: commands)
         add("print", "", "printer", "Print (Command+P)", #selector(printDocument(_:)), to: commands)
-        add("save", "Save", "square.and.arrow.down", "Save PDF (Command+S)", #selector(saveDocument(_:)), to: commands)
+        add("save", "Save", "save", "Save PDF (Command+S)", #selector(saveDocument(_:)), to: commands)
         controls["save"]?.outlined = true
+        commands.addSubview(applicationMenus)
+        applicationMenus.closeMenus = { [weak self] in self?.toggleApplicationMenus(nil) }
         add("outline", "Outline", nil, "Document outline", #selector(showOutline(_:)), to: sidebar)
         add("pages", "Pages", nil, "Page thumbnails", #selector(showPages(_:)), to: sidebar)
         controls["outline"]?.selectionStyle = .navigation
@@ -147,6 +177,8 @@ final class DocumentWindow: NSWindowController, NSCollectionViewDataSource, NSCo
         controls["zoom"]?.imagePosition = .imageTrailing
         add("plus", "", "plus", "Zoom in (Command++)", #selector(zoomIn(_:)), to: context)
         add("form", "Fill Form", "square.and.pencil", "Fill form (Command+Shift+F)", #selector(fillForm(_:)), to: context)
+        add("text", "Add Text", "textformat", "Add text (Command+Shift+T)", #selector(addText(_:)), to: context)
+        controls["text"]?.selectionStyle = .navigation
         add("selectAll", "Select all", nil, "Select all pages (Command+A)", #selector(selectAllPages(_:)), to: context)
         add("rotate", "Rotate", "rotate.right", "Rotate selected pages clockwise", #selector(rotateRight(_:)), to: context)
         add("duplicate", "Duplicate", "plus.square.on.square", "Duplicate selected pages", #selector(duplicatePages(_:)), to: context)
@@ -199,8 +231,22 @@ final class DocumentWindow: NSWindowController, NSCollectionViewDataSource, NSCo
         pdfView.pageBreakMargins = NSEdgeInsets(top: 20, left: 24, bottom: 20, right: 24)
         pdfView.setAccessibilityLabel("PDF reading view")
         pdfView.editField = { [weak self] field in self?.edit(field) }
+        pdfView.placeText = { [weak self] page, point in self?.showTextEditor(page: page, point: point) }
+        pdfView.editText = { [weak self] annotation in
+            guard let page = annotation.page else { return }
+            self?.showTextEditor(page: page, point: annotation.bounds.origin, annotation: annotation)
+        }
+        pdfView.cancelText = { [weak self] in self?.cancelTextPlacement() }
+        pdfView.readerClicked = { [weak self] in self?.railSelectionActive = false }
         observe(.PDFViewPageChanged, object: pdfView) { $0.pageChanged() }
         observe(.PDFViewScaleChanged, object: pdfView) { $0.updateChrome() }
+        observe(AppAppearance.didChange, object: AppAppearance.shared) { controller in
+            controller.brandMark.image = DocumentTheme.brandMark
+            DocumentTheme.refresh(controller.root)
+            for item in controller.pages.visibleItems() + controller.organizer.visibleItems() {
+                (item as? PageThumbnailItem)?.refreshAppearance()
+            }
+        }
         for name in [Notification.Name.NSUndoManagerDidUndoChange, .NSUndoManagerDidRedoChange,
                      .NSUndoManagerDidCloseUndoGroup] {
             observe(name, object: gravity.undoManager) { $0.updateChrome() }
@@ -233,7 +279,7 @@ final class DocumentWindow: NSWindowController, NSCollectionViewDataSource, NSCo
         layout.sectionInset = NSEdgeInsets(top: 24, left: 24, bottom: 24, right: 24)
         collection.collectionViewLayout = layout
         collection.isSelectable = true
-        collection.allowsMultipleSelection = !rail
+        collection.allowsMultipleSelection = true
         collection.allowsEmptySelection = false
         collection.backgroundColors = [rail ? DocumentTheme.chrome : DocumentTheme.canvas]
         collection.dataSource = self
@@ -246,6 +292,11 @@ final class DocumentWindow: NSWindowController, NSCollectionViewDataSource, NSCo
         collection.copySelection = { [weak self] in self?.copyPages(nil) }
         collection.cutSelection = { [weak self] in self?.cutPages(nil) }
         collection.pasteSelection = { [weak self] in self?.pastePages(nil) }
+        collection.moveSelection = { [weak self] offset in self?.move(offset) }
+        collection.pageMenu = { [weak self] in self?.makePageMenu() ?? NSMenu() }
+        collection.registerForDraggedTypes([PageCollectionView.pageDragType])
+        collection.setDraggingSourceOperationMask(.move, forLocal: true)
+        collection.setDraggingSourceOperationMask([], forLocal: false)
         scroll.documentView = collection
         scroll.hasVerticalScroller = true
         scroll.autohidesScrollers = true
@@ -256,27 +307,37 @@ final class DocumentWindow: NSWindowController, NSCollectionViewDataSource, NSCo
         controls[id]?.frame = NSRect(x: x, y: y, width: width, height: height)
     }
 
+    @objc func toggleApplicationMenus(_ sender: Any?) {
+        menusExpanded.toggle()
+        for view in commands.subviews { view.isHidden = menusExpanded }
+        applicationMenus.isHidden = !menusExpanded
+        root.needsLayout = true
+        root.layoutSubtreeIfNeeded()
+    }
+
     private func layoutWorkspace() {
         let width = root.bounds.width, height = root.bounds.height
-        let compact = width < 820
-        let commandHeight: CGFloat = compact ? 104 : 60
+        let compact = width < 660
+        let commandHeight = WorkspaceMetrics.commandHeight + (compact && !menusExpanded ? 38 : 0)
         let sidebarWidth: CGFloat = sidebarVisible && width >= 700 ? (width < 1000 ? 210 : 236) : 0
-        let bodyY: CGFloat = 48 + commandHeight
-        header.frame = NSRect(x: 0, y: 0, width: width, height: 48)
-        brandMark.frame = NSRect(x: 20, y: 10, width: 24, height: 26)
-        brand.frame = NSRect(x: 54, y: 15, width: 90, height: 22)
-        titleLabel.frame = NSRect(x: 155, y: 7, width: max(0, width - 310), height: 18)
-        documentState.frame = NSRect(x: 155, y: 27, width: max(0, width - 310), height: 16)
-        commands.frame = NSRect(x: 0, y: 48, width: width, height: commandHeight)
-        place("sidebar", 12, 8, 40, 44)
-        place("open", 56, 8, 86, 44)
-        place("save", width - 98, 8, 86, 44)
-        place("print", width - 142, 8, 40, 44)
-        place("undo", width - 186, 8, 40, 44)
-        place("find", width - 230, 8, 40, 44)
-        modeTrack.frame = NSRect(x: (width - 238) / 2, y: compact ? 56 : 8, width: 238, height: 44)
-        place("read", 3, 3, 116, 38)
-        place("organize", 119, 3, 116, 38)
+        let bodyY = WorkspaceMetrics.headerHeight + commandHeight
+        header.frame = NSRect(x: 0, y: 0, width: width, height: WorkspaceMetrics.headerHeight)
+        brandMark.frame = NSRect(x: 20, y: 9, width: 22, height: 22)
+        brand.frame = NSRect(x: 48, y: 10, width: 64, height: 20)
+        titleLabel.frame = NSRect(x: 210, y: 3, width: max(0, width - 420), height: 18)
+        documentState.frame = NSRect(x: 210, y: 21, width: max(0, width - 420), height: 16)
+        commands.frame = NSRect(x: 0, y: WorkspaceMetrics.headerHeight, width: width, height: commandHeight)
+        applicationMenus.frame = commands.bounds
+        place("sidebar", 12, 6, 32, 32)
+        place("open", 48, 6, 76, 32)
+        place("menu", 128, 6, 32, 32)
+        place("save", width - 90, 6, 78, 32)
+        place("print", width - 126, 6, 32, 32)
+        place("undo", width - 162, 6, 32, 32)
+        place("find", width - 198, 6, 32, 32)
+        modeTrack.frame = NSRect(x: (width - 212) / 2, y: compact ? 44 : 5, width: 212, height: 34)
+        place("read", 3, 3, 100, 28)
+        place("organize", 103, 3, 106, 28)
         let bodyHeight = max(0, height - bodyY - 30)
         sidebar.isHidden = sidebarWidth == 0
         if sidebar.isHidden, let responder = window?.firstResponder as? NSView, responder.isDescendant(of: sidebar) {
@@ -300,15 +361,15 @@ final class DocumentWindow: NSWindowController, NSCollectionViewDataSource, NSCo
         let available = width - sidebarWidth
         workspace.frame = NSRect(x: sidebarWidth, y: bodyY, width: available, height: bodyHeight)
         let wrap = organizing && available < 680
-        let contextHeight: CGFloat = wrap ? 100 : 56
+        let wrapReader = !organizing && available < 660
+        let contextHeight: CGFloat = wrap || wrapReader ? 100 : 56
         context.frame = NSRect(x: 0, y: 0, width: available, height: contextHeight)
-        let small = available < 540
         place("previous", 12, 8, 32)
         pageField.frame = NSRect(x: 48, y: 13, width: 46, height: 30)
         pageCount.frame = NSRect(x: 102, y: 19, width: 60, height: 20)
         place("next", 162, 8, 32)
-        controls["form"]?.isHidden = organizing || small
-        place("form", 204, 8, 110)
+        place("text", wrapReader ? 12 : 204, wrapReader ? 54 : 8, 104)
+        place("form", wrapReader ? 122 : 310, wrapReader ? 54 : 8, 104)
         place("minus", available - 188, 8, 32)
         place("zoom", available - 152, 8, 104)
         place("plus", available - 44, 8, 32)
@@ -319,11 +380,8 @@ final class DocumentWindow: NSWindowController, NSCollectionViewDataSource, NSCo
         place("rotate", actionX, actionY, 90)
         place("duplicate", actionX + 96, actionY, 112)
         place("delete", actionX + 214, actionY, 88)
-        let showMovement = available >= 800
-        controls["earlier"]?.isHidden = !organizing || !showMovement
-        controls["later"]?.isHidden = !organizing || !showMovement
-        place("earlier", 480, 8, 40)
-        place("later", 524, 8, 40)
+        place("earlier", wrap ? 156 : 474, 8, 36)
+        place("later", wrap ? 196 : 514, 8, 36)
         place("more", available - 88, 8, 76)
         searchBar.isHidden = !searching
         searchBar.frame = NSRect(x: 0, y: contextHeight, width: available, height: searching ? 48 : 0)
@@ -361,29 +419,33 @@ final class DocumentWindow: NSWindowController, NSCollectionViewDataSource, NSCo
     }
 
     private var selected: IndexSet {
-        let indices = organizing ? IndexSet(organizer.selectionIndexPaths.map { $0.item }) : IndexSet(integer: currentIndex)
+        let indices = organizing ? IndexSet(organizer.selectionIndexPaths.map { $0.item })
+            : railSelectionActive && showingPages && !sidebar.isHidden ? IndexSet(pages.selectionIndexPaths.map { $0.item }) : IndexSet(integer: currentIndex)
         return indices.isEmpty ? IndexSet(integer: currentIndex) : indices
     }
 
     func refresh() {
+        dragToken = UUID().uuidString
         let index = max(0, min(currentIndex, model.pdf.pageCount - 1))
         let selection = selected.intersection(IndexSet(integersIn: 0..<model.pdf.pageCount))
         updating = true
         thumbnailCache.removeAllObjects()
         searchFeedback.stringValue = ""
+        pdfView.document = nil
         pdfView.document = model.pdf
         rebuildOutline()
         pages.reloadData()
         organizer.reloadData()
         if let page = model.pdf.page(at: index) { pdfView.go(to: page) }
-        pages.selectionIndexPaths = [IndexPath(item: index, section: 0)]
+        pages.selectionIndexPaths = Set((railSelectionActive ? selection : IndexSet(integer: index)).map { IndexPath(item: $0, section: 0) })
         organizer.selectionIndexPaths = Set((selection.isEmpty ? IndexSet(integer: index) : selection).map { IndexPath(item: $0, section: 0) })
         updating = false
-        pageChanged()
+        updateChrome()
     }
 
     private func pageChanged() {
         guard !updating else { return }
+        railSelectionActive = false
         updating = true
         let path = IndexPath(item: currentIndex, section: 0)
         pages.selectionIndexPaths = [path]
@@ -419,7 +481,10 @@ final class DocumentWindow: NSWindowController, NSCollectionViewDataSource, NSCo
         pageCount.stringValue = "of \(count)"
         selectionCount.stringValue = "\(selected.count) selected"
         position.stringValue = organizing ? "\(selected.count) of \(count) selected" : navigationPosition.stringValue
-        guidance.stringValue = organizing ? "Command-click to select · Double-click to read" : "Nothing is written until you save"
+        guidance.stringValue = pdfView.placingText ? "Click a page to add text · Escape to cancel"
+            : organizing ? "Drag pages to reorder · Command-click to select · Double-click to read" : "Nothing is written until you save"
+        controls["text"]?.selected = pdfView.placingText
+        controls["text"]?.isEnabled = model.pdf.allowsCommenting
         controls["read"]?.selected = !organizing
         controls["organize"]?.selected = organizing
         controls["outline"]?.selected = !showingPages
@@ -441,7 +506,7 @@ final class DocumentWindow: NSWindowController, NSCollectionViewDataSource, NSCo
         controls["earlier"]?.isEnabled = editable && (selected.first ?? 0) > 0
         controls["later"]?.isEnabled = editable && (selected.last ?? 0) + 1 < count
         controls["form"]?.isEnabled = model.pdf.allowsFormFieldEntry && !model.widgets(on: currentIndex).isEmpty
-        for id in ["previous", "next", "minus", "zoom", "plus", "form"] { controls[id]?.isHidden = organizing }
+        for id in ["previous", "next", "minus", "zoom", "plus", "form", "text"] { controls[id]?.isHidden = organizing }
         for id in ["rotate", "duplicate", "delete", "selectAll", "earlier", "later", "more"] { controls[id]?.isHidden = !organizing }
         pageField.isHidden = organizing
         pageCount.isHidden = organizing
@@ -527,7 +592,16 @@ final class DocumentWindow: NSWindowController, NSCollectionViewDataSource, NSCo
     }
     func collectionView(_ collectionView: NSCollectionView, didSelectItemsAt indexPaths: Set<IndexPath>) {
         guard !updating else { return }
-        if collectionView === pages, let index = indexPaths.first?.item { readPage(index) }
+        if collectionView === pages, let index = indexPaths.map({ $0.item }).min(), let page = model.pdf.page(at: index) {
+            let selection = pages.selectionIndexPaths
+            setOrganizing(false)
+            railSelectionActive = true
+            updating = true
+            pages.selectionIndexPaths = selection
+            pdfView.go(to: page)
+            updating = false
+            updateChrome()
+        }
         else { updateChrome() }
     }
     func collectionView(_ collectionView: NSCollectionView, didDeselectItemsAt indexPaths: Set<IndexPath>) {
@@ -537,9 +611,11 @@ final class DocumentWindow: NSWindowController, NSCollectionViewDataSource, NSCo
     private func setOrganizing(_ value: Bool) {
         guard organizing != value else { return }
         let readingIndex = selected.first ?? currentIndex
+        let selection = selected
+        cancelTextPlacement()
         organizing = value
         if value {
-            organizer.selectionIndexPaths = [IndexPath(item: currentIndex, section: 0)]
+            organizer.selectionIndexPaths = Set(selection.map { IndexPath(item: $0, section: 0) })
             closeFind(nil)
         } else if let page = model.pdf.page(at: readingIndex) {
             pdfView.go(to: page)
@@ -552,6 +628,7 @@ final class DocumentWindow: NSWindowController, NSCollectionViewDataSource, NSCo
         } else { window?.makeFirstResponder(pdfView) }
     }
     private func readPage(_ index: Int) {
+        railSelectionActive = false
         guard let page = model.pdf.page(at: index) else { return }
         setOrganizing(false)
         pdfView.go(to: page)
@@ -601,10 +678,12 @@ final class DocumentWindow: NSWindowController, NSCollectionViewDataSource, NSCo
         pdfView.scaleFactor = CGFloat(sender.tag) / 100
         updateChrome()
     }
-    @objc func morePageActions(_ sender: Any?) {
+    private func makePageMenu() -> NSMenu {
         let menu = NSMenu()
         let items: [(String, Selector)] = [
-            ("Rotate Left", #selector(rotateLeft(_:))), ("Move Earlier", #selector(moveEarlier(_:))),
+            ("Rotate Right", #selector(rotateRight(_:))), ("Rotate Left", #selector(rotateLeft(_:))),
+            ("Duplicate Pages", #selector(duplicatePages(_:))), ("Delete Pages", #selector(deletePages(_:))),
+            ("Move Earlier", #selector(moveEarlier(_:))),
             ("Move Later", #selector(moveLater(_:))), ("Cut Pages", #selector(cutPages(_:))),
             ("Copy Pages", #selector(copyPages(_:))), ("Paste Pages", #selector(pastePages(_:))),
             ("Insert Blank Page", #selector(insertBlank(_:))), ("Insert PDFs…", #selector(insertFiles(_:))),
@@ -615,6 +694,10 @@ final class DocumentWindow: NSWindowController, NSCollectionViewDataSource, NSCo
             item.target = self
             menu.addItem(item)
         }
+        return menu
+    }
+    @objc func morePageActions(_ sender: Any?) {
+        let menu = makePageMenu()
         if let button = controls["more"] { menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height), in: button) }
     }
 
@@ -628,13 +711,15 @@ final class DocumentWindow: NSWindowController, NSCollectionViewDataSource, NSCo
         case #selector(nextPage(_:)): return currentIndex + 1 < model.pdf.pageCount
         case #selector(deletePages(_:)): return editable && selected.count < model.pdf.pageCount
         case #selector(cutPages(_:)): return editable && model.pdf.allowsCopying && selected.count < model.pdf.pageCount
-        case #selector(copyPages(_:)), #selector(extractPages(_:)): return model.pdf.allowsCopying
+        case #selector(copyPages(_:)), #selector(extractPages(_:)), #selector(saveSelectedPages(_:)), #selector(exportPages(_:)):
+            return model.pdf.allowsCopying && !selected.isEmpty
         case #selector(duplicatePages(_:)): return editable && model.pdf.allowsCopying
         case #selector(pastePages(_:)): return editable && Self.pageClipboard != nil
         case #selector(moveEarlier(_:)): return editable && (selected.first ?? 0) > 0
         case #selector(moveLater(_:)): return editable && (selected.last ?? 0) + 1 < model.pdf.pageCount
         case #selector(rotateLeft(_:)), #selector(rotateRight(_:)), #selector(insertBlank(_:)), #selector(insertFiles(_:)): return editable
         case #selector(fillForm(_:)): return model.pdf.allowsFormFieldEntry
+        case #selector(addText(_:)): return model.pdf.allowsCommenting
         default: break
         }
         return true
@@ -686,9 +771,92 @@ final class DocumentWindow: NSWindowController, NSCollectionViewDataSource, NSCo
     private func move(_ offset: Int) {
         let indices = selected
         guard let first = indices.first, let last = indices.last, first + offset >= 0, last + offset < model.pdf.pageCount else { return }
-        gravity.edit("Move Pages") { try model.move(indices, by: offset) }
-        organizer.selectionIndexPaths = Set(indices.map { IndexPath(item: $0 + offset, section: 0) })
+        guard gravity.edit("Move Pages", operation: { try model.move(indices, by: offset) }) else { return }
+        selectMovedPages(IndexSet(indices.map { $0 + offset }))
         updateChrome()
+    }
+
+    private func selectMovedPages(_ indices: IndexSet) {
+        updating = true
+        let paths = Set(indices.map { IndexPath(item: $0, section: 0) })
+        organizer.selectionIndexPaths = paths
+        pages.selectionIndexPaths = paths
+        if let first = indices.first, let page = model.pdf.page(at: first) { pdfView.go(to: page) }
+        railSelectionActive = !organizing
+        updating = false
+        let collection = organizing ? organizer : pages
+        collection.scrollToItems(at: paths, scrollPosition: .nearestHorizontalEdge)
+        updateChrome()
+    }
+
+    @discardableResult
+    func reorderPages(_ indices: IndexSet, before destination: Int) -> Bool {
+        var selection = IndexSet()
+        guard gravity.edit("Move Pages", operation: { selection = try model.reorder(indices, before: destination) }) else { return false }
+        selectMovedPages(selection)
+        return true
+    }
+
+    func collectionView(_ collectionView: NSCollectionView, pasteboardWriterForItemAt indexPath: IndexPath) -> NSPasteboardWriting? {
+        guard model.pdf.allowsDocumentAssembly else { return nil }
+        let item = NSPasteboardItem()
+        item.setString("\(dragToken):\(indexPath.item)", forType: PageCollectionView.pageDragType)
+        return item
+    }
+
+    private func draggedPages(_ info: NSDraggingInfo) -> IndexSet? {
+        guard let source = info.draggingSource as? NSCollectionView, source === pages || source === organizer,
+              let items = info.draggingPasteboard.pasteboardItems, !items.isEmpty else { return nil }
+        var indices = IndexSet()
+        for item in items {
+            guard let value = item.string(forType: PageCollectionView.pageDragType) else { return nil }
+            let parts = value.split(separator: ":")
+            guard parts.count == 2, parts[0] == dragToken, let index = Int(parts[1]), index >= 0, index < model.pdf.pageCount else { return nil }
+            indices.insert(index)
+        }
+        return indices
+    }
+
+    func collectionView(_ collectionView: NSCollectionView, validateDrop draggingInfo: NSDraggingInfo,
+                        proposedIndexPath proposedDropIndexPath: AutoreleasingUnsafeMutablePointer<NSIndexPath>,
+                        dropOperation proposedDropOperation: UnsafeMutablePointer<NSCollectionView.DropOperation>) -> NSDragOperation {
+        guard model.pdf.allowsDocumentAssembly, draggedPages(draggingInfo) != nil else { return [] }
+        proposedDropOperation.pointee = .before
+        return .move
+    }
+
+    func collectionView(_ collectionView: NSCollectionView, acceptDrop draggingInfo: NSDraggingInfo,
+                        indexPath: IndexPath, dropOperation: NSCollectionView.DropOperation) -> Bool {
+        guard let indices = draggedPages(draggingInfo), indexPath.section == 0 else { return false }
+        return reorderPages(indices, before: indexPath.item)
+    }
+
+    @objc func addText(_ sender: Any?) {
+        guard model.pdf.allowsCommenting else { return }
+        setOrganizing(false)
+        pdfView.placingText.toggle()
+        window?.makeFirstResponder(pdfView)
+        updateChrome()
+    }
+
+    private func cancelTextPlacement() {
+        pdfView.placingText = false
+        updateChrome()
+    }
+
+    private func showTextEditor(page: PDFPage, point: NSPoint, annotation: PDFAnnotation? = nil) {
+        guard let window = window, model.pdf.allowsCommenting, annotation?.isReadOnly != true else { return }
+        let index = model.pdf.index(for: page)
+        guard index != NSNotFound else { return }
+        cancelTextPlacement()
+        let editor = TextEditor(page: page, point: point, annotation: annotation)
+        editor.alert.beginSheetModal(for: window) { [weak self, editor] response in
+            guard let self = self, response == .alertFirstButtonReturn || response == .alertThirdButtonReturn else { return }
+            let text = response == .alertThirdButtonReturn ? "" : editor.text.string
+            self.gravity.edit(annotation == nil ? "Add Text" : text.isEmpty ? "Delete Text" : "Edit Text") {
+                try self.model.setText(on: index, annotation: annotation, text: text, font: editor.font, bounds: editor.textBounds)
+            }
+        }
     }
 
     @objc func copyPages(_ sender: Any?) {
@@ -740,6 +908,62 @@ final class DocumentWindow: NSWindowController, NSCollectionViewDataSource, NSCo
             document.makeWindowControllers()
             document.showWindows()
         } catch { gravity.presentError(error) }
+    }
+
+    @objc func saveSelectedPages(_ sender: Any?) {
+        guard let window = window else { return }
+        do {
+            let data = try model.extract(selected)
+            let panel = NSSavePanel()
+            panel.allowedContentTypes = [.pdf]
+            panel.nameFieldStringValue = (gravity.fileURL?.deletingPathExtension().lastPathComponent ?? "Untitled") + "-selected.pdf"
+            panel.beginSheetModal(for: window) { [weak self] response in
+                guard response == .OK, let url = panel.url, let self = self else { return }
+                do {
+                    try FileCommands.saveSelectedPDF(data, to: url, source: self.gravity.fileURL)
+                }
+                catch { self.gravity.presentError(error) }
+            }
+        } catch { gravity.presentError(error) }
+    }
+
+    @objc func exportPages(_ sender: Any?) {
+        guard let window = window, model.pdf.allowsCopying else { return }
+        let selection = selected
+        let options = ExportOptions(selectedCount: selection.count, totalCount: model.pdf.pageCount)
+        options.alert.beginSheetModal(for: window) { [weak self] response in
+            guard response == .alertFirstButtonReturn, let self = self else { return }
+            do {
+                let indices = options.scope.indexOfSelectedItem == 0 ? selection : IndexSet(integersIn: 0..<self.model.pdf.pageCount)
+                guard let pdf = PDFDocument(data: try self.model.extract(indices)) else { throw PDFError.invalid }
+                let name = self.gravity.fileURL?.deletingPathExtension().lastPathComponent ?? "Untitled"
+                if options.format.indexOfSelectedItem == 2 {
+                    let panel = NSSavePanel()
+                    panel.allowedContentTypes = [.plainText]
+                    panel.nameFieldStringValue = name + ".txt"
+                    panel.beginSheetModal(for: window) { response in
+                        guard response == .OK, let url = panel.url else { return }
+                        do { try FileCommands.text(from: pdf).write(to: url, atomically: true, encoding: .utf8) }
+                        catch { self.gravity.presentError(error) }
+                    }
+                } else {
+                    let panel = NSOpenPanel()
+                    panel.canChooseFiles = false
+                    panel.canChooseDirectories = true
+                    panel.canCreateDirectories = true
+                    panel.prompt = "Export"
+                    panel.message = "Choose a folder. Exported pages will be placed in a new subfolder."
+                    panel.beginSheetModal(for: window) { response in
+                        guard response == .OK, let parent = panel.url else { return }
+                        do {
+                            let destination = FileCommands.unusedExportFolder(in: parent, name: name + "-pages")
+                            try FileCommands.exportImages(pdf, to: destination, format: options.format.indexOfSelectedItem == 1 ? .jpeg : .png)
+                            NSWorkspace.shared.activateFileViewerSelecting([destination])
+                        } catch { self.gravity.presentError(error) }
+                    }
+                }
+            } catch { self.gravity.presentError(error) }
+        }
     }
 
     @objc func fillForm(_ sender: Any?) {

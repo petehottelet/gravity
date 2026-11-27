@@ -80,6 +80,74 @@ final class PDFModel {
         revision &+= 1
     }
 
+    // The destination is a gap in the original page order, including after the last page.
+    @discardableResult
+    func reorder(_ indices: IndexSet, before destination: Int) throws -> IndexSet {
+        try requirePageEditing()
+        let count = pdf.pageCount
+        guard destination >= 0, destination <= count,
+              indices.allSatisfy({ $0 < count }) else { throw PDFError.invalid }
+        guard !indices.isEmpty else { return [] }
+        let insertion = destination - indices.filter { $0 < destination }.count
+        var order = (0..<count).filter { !indices.contains($0) }
+        order.insert(contentsOf: indices, at: insertion)
+        let selection = IndexSet(integersIn: insertion..<(insertion + indices.count))
+        guard order != Array(0..<count) else { return selection }
+        let moved = indices.compactMap { pdf.page(at: $0) }
+        for index in indices.reversed() { pdf.removePage(at: index) }
+        for (offset, page) in moved.enumerated() { pdf.insert(page, at: insertion + offset) }
+        revision &+= 1
+        return selection
+    }
+
+    static func isFreeText(_ annotation: PDFAnnotation) -> Bool {
+        annotation.type?.trimmingCharacters(in: CharacterSet(charactersIn: "/")) == "FreeText"
+    }
+
+    @discardableResult
+    func setText(on index: Int, annotation: PDFAnnotation? = nil, text: String,
+                 font: NSFont, bounds: NSRect) throws -> PDFAnnotation? {
+        guard pdf.allowsCommenting else { throw PDFError.readOnly }
+        guard let page = pdf.page(at: index),
+              annotation == nil || (annotation?.page === page && Self.isFreeText(annotation!)) else { throw PDFError.invalid }
+        if let annotation = annotation, annotation.isReadOnly { throw PDFError.readOnly }
+        if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            if let annotation = annotation { page.removeAnnotation(annotation); revision &+= 1 }
+            return nil
+        }
+        guard [bounds.minX, bounds.minY, bounds.width, bounds.height, font.pointSize].allSatisfy({ $0.isFinite }),
+              bounds.width > 0, bounds.height > 0, font.pointSize >= 6, font.pointSize <= 144,
+              page.bounds(for: .cropBox).contains(bounds) else { throw PDFError.invalid }
+        if let annotation = annotation, annotation.contents == text, annotation.font == font, annotation.bounds == bounds {
+            return annotation
+        }
+        let result = annotation ?? PDFAnnotation(bounds: bounds, forType: .freeText, withProperties: nil)
+        result.contents = text
+        result.font = font
+        result.bounds = bounds
+        if annotation == nil {
+            result.fontColor = .black
+            result.color = .clear
+            let border = PDFBorder()
+            border.lineWidth = 0
+            result.border = border
+            result.alignment = .left
+            result.shouldPrint = true
+            page.addAnnotation(result)
+        }
+        // PDFKit can serialize a leading-slash DA as a PDF name, causing the
+        // font to reopen at 12 pt. Begin with the color operator to keep a string.
+        let color = (result.fontColor ?? .black).usingColorSpace(.sRGB) ?? .black
+        let name = font.fontName.utf8.map { byte -> String in
+            (33...126).contains(byte) && !Array("#%()/<>[]{}".utf8).contains(byte)
+                ? String(UnicodeScalar(byte)) : String(format: "#%02X", byte)
+        }.joined()
+        result.setValue("\(color.redComponent) \(color.greenComponent) \(color.blueComponent) rg /\(name) \(font.pointSize) Tf",
+                        forAnnotationKey: .defaultAppearance)
+        revision &+= 1
+        return result
+    }
+
     func extract(_ indices: IndexSet) throws -> Data {
         guard pdf.allowsCopying else { throw PDFError.readOnly }
         let result = PDFDocument()

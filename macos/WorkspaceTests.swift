@@ -28,6 +28,7 @@ enum WorkspaceTests {
         guard let controller = document.windowControllers.first as? DocumentWindow,
               let window = controller.window, let root = window.contentView else { throw PDFError.invalid }
         defer { controller.close() }
+        try check(window.frameAutosaveName.isEmpty, "native tests leave saved document window positions unchanged")
         window.setContentSize(NSSize(width: 1100, height: 760))
         root.layoutSubtreeIfNeeded()
 
@@ -70,6 +71,25 @@ enum WorkspaceTests {
         controller.showOrganize(nil)
         try check(organize.selected && !read.selected && pdfView.isHidden, "Organize replaces reader with grid")
         try check(grid.selectionIndexPaths == [IndexPath(item: 5, section: 0)], "organizer begins at current reading page")
+        try check(grid.registeredDraggedTypes.contains(PageCollectionView.pageDragType) && rail.registeredDraggedTypes.contains(PageCollectionView.pageDragType),
+                  "organizer and sidebar accept page drags")
+        try check(controller.collectionView(grid, pasteboardWriterForItemAt: IndexPath(item: 1, section: 0)) != nil,
+                  "thumbnail provides a native drag payload")
+        let drag = WorkspacePageDrag(source: grid)
+        drag.draggingPasteboard.writeObjects([1, 3].compactMap { controller.collectionView(grid, pasteboardWriterForItemAt: IndexPath(item: $0, section: 0)) })
+        var destination = IndexPath(item: 6, section: 0) as NSIndexPath
+        var operation = NSCollectionView.DropOperation.on
+        try check(controller.collectionView(grid, validateDrop: drag, proposedIndexPath: &destination, dropOperation: &operation) == .move && operation == .before,
+                  "native drag validation offers insertion between pages")
+        let movedTitle = document.model.pdf.page(at: 1)?.string
+        try check(controller.collectionView(grid, acceptDrop: drag, indexPath: IndexPath(item: 6, section: 0), dropOperation: .before),
+                  "native drop moves nonadjacent selected pages")
+        try check(grid.selectionIndexPaths == [IndexPath(item: 4, section: 0), IndexPath(item: 5, section: 0)] && document.model.pdf.page(at: 4)?.string == movedTitle,
+                  "drop keeps selection on moved pages")
+        controller.undoEdit(nil)
+        try check(document.model.pdf.page(at: 1)?.string == movedTitle && !document.isDocumentEdited, "page drag undo restores original order and clean state")
+        try check(controller.collectionView(grid, validateDrop: drag, proposedIndexPath: &destination, dropOperation: &operation).isEmpty,
+                  "stale drag cannot reorder pages after a document change")
         grid.selectionIndexPaths = [IndexPath(item: 1, section: 0), IndexPath(item: 2, section: 0)]
         controller.collectionView(grid, didSelectItemsAt: grid.selectionIndexPaths)
         controller.rotateRight(nil)
@@ -102,7 +122,10 @@ enum WorkspaceTests {
         for width in [CGFloat(1100), 820, 819, 700, 699, 560] {
             window.setContentSize(NSSize(width: width, height: 500))
             root.layoutSubtreeIfNeeded()
-            let primary = try ["rotate", "duplicate", "delete"].map { try button($0) }
+            let save = try button("save")
+            try check(save.contentFrames.image.minX >= 8 && save.contentFrames.title.minX - save.contentFrames.image.maxX == 6,
+                      "document Save keeps its icon padded and label grouped at width \(Int(width))")
+            let primary = try ["rotate", "duplicate", "delete", "earlier", "later"].map { try button($0) }
             for action in primary {
                 try check(!action.isHidden && action.superview!.bounds.contains(action.frame),
                           "primary page action fits at width \(Int(width))")
@@ -115,12 +138,16 @@ enum WorkspaceTests {
             root.layoutSubtreeIfNeeded()
             let previous = try button("previous"), next = try button("next")
             let minus = try button("minus"), zoom = try button("zoom"), plus = try button("plus")
-            for control in [previous, next, minus, zoom, plus] {
+            let addText = try button("text"), form = try button("form")
+            for control in [previous, next, minus, zoom, plus, addText, form] {
                 try check(!control.isHidden && control.superview!.bounds.contains(control.frame),
                           "reading control fits at width \(Int(width))")
             }
             try check(next.frame.maxX <= minus.frame.minX && zoom.frame.maxX <= plus.frame.minX,
                       "page and zoom controls do not overlap at width \(Int(width))")
+            let actions = [previous, next, minus, zoom, plus, addText, form]
+            try check(actions.enumerated().allSatisfy { index, action in actions.dropFirst(index + 1).allSatisfy { !action.frame.intersects($0.frame) } },
+                      "text and form controls do not overlap at width \(Int(width))")
             controller.showOrganize(nil)
             root.layoutSubtreeIfNeeded()
         }
@@ -131,6 +158,49 @@ enum WorkspaceTests {
         rail.selectionIndexPaths = [IndexPath(item: 4, section: 0)]
         controller.collectionView(rail, didSelectItemsAt: rail.selectionIndexPaths)
         try check(pdfView.currentPage === document.model.pdf.page(at: 4), "page rail navigates reader")
+        rail.selectionIndexPaths = [IndexPath(item: 1, section: 0), IndexPath(item: 3, section: 0)]
+        controller.collectionView(rail, didSelectItemsAt: rail.selectionIndexPaths)
+        controller.rotateRight(nil)
+        try check(document.model.pdf.page(at: 1)?.rotation == 90 && document.model.pdf.page(at: 3)?.rotation == 90,
+                  "sidebar page commands apply to every selected thumbnail")
+        controller.undoEdit(nil)
+        controller.addText(nil)
+        let formPDF = pdfView as! FormPDFView
+        try check(formPDF.placingText && (try button("text")).selected, "Add Text activates click-to-place mode")
+        formPDF.cancelText?()
+        try check(!formPDF.placingText && !(try button("text")).selected, "cancel restores normal reader interaction")
+        let textPage = document.model.pdf.page(at: 0)!
+        if CommandLine.arguments.contains("--ui-snapshots") { window.orderFront(nil) }
+        formPDF.placeText?(textPage, NSPoint(x: 54, y: 520))
+        guard let sheet = window.attachedSheet, let content = sheet.contentView,
+              let textInput = descendants(content).compactMap({ $0 as? NSTextView }).first,
+              let apply = descendants(content).compactMap({ $0 as? NSButton }).first(where: { $0.title == "Apply" }) else { throw PDFError.invalid }
+        try check(!apply.isEnabled, "empty text cannot be applied")
+        textInput.string = "Added from the text editor"
+        textInput.didChangeText()
+        try check(apply.isEnabled, "typing text enables Apply")
+        if let flag = CommandLine.arguments.firstIndex(of: "--ui-snapshots"), flag + 1 < CommandLine.arguments.count {
+            let directory = URL(fileURLWithPath: CommandLine.arguments[flag + 1], isDirectory: true)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+            content.layoutSubtreeIfNeeded()
+            content.displayIfNeeded()
+            guard let bitmap = content.bitmapImageRepForCachingDisplay(in: content.bounds) else { throw PDFError.write }
+            content.cacheDisplay(in: content.bounds, to: bitmap)
+            guard let png = bitmap.representation(using: .png, properties: [:]) else { throw PDFError.write }
+            let url = directory.appendingPathComponent("text-editor.png")
+            try png.write(to: url)
+            captureWindow(sheet, to: url)
+        }
+        apply.performClick(nil)
+        let sheetDeadline = Date().addingTimeInterval(1)
+        while window.attachedSheet != nil && Date() < sheetDeadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+        }
+        try check(document.model.pdf.page(at: 0)!.annotations.contains { PDFModel.isFreeText($0) && $0.contents == "Added from the text editor" },
+                  "text editor Apply commits a PDF text annotation")
+        controller.undoEdit(nil)
+        try check(document.model.pdf.page(at: 0)!.annotations.isEmpty, "text editor changes participate in document undo")
         controller.showOrganize(nil)
         controller.find(nil)
         try check(read.selected && !search.isHiddenOrHasHiddenAncestor, "Find opens reader and search field from organizer")
@@ -162,22 +232,42 @@ enum WorkspaceTests {
         try check(state.stringValue.contains("Unsaved changes"), "external change-count updates reach header")
         document.updateChangeCount(.changeCleared)
         try check(!state.stringValue.contains("Unsaved changes"), "saved checkpoint refreshes header")
+        controller.toggleApplicationMenus(nil)
+        root.layoutSubtreeIfNeeded()
+        let applicationMenus = try view("applicationMenus", as: WorkspaceMenus.self)
+        try check(!applicationMenus.isHidden && read.isHiddenOrHasHiddenAncestor, "document menus expand in place of mode controls")
+        try check(applicationMenus.subviews.allSatisfy { applicationMenus.bounds.contains($0.frame) }, "document menu buttons fit the narrow window")
+        controller.toggleApplicationMenus(nil)
+        try check(applicationMenus.isHidden && !read.isHiddenOrHasHiddenAncestor, "closing document menus restores Read and Organize")
 
         // Optional local captures use only generated fixtures, never an opened user PDF.
         if let flag = CommandLine.arguments.firstIndex(of: "--ui-snapshots"), flag + 1 < CommandLine.arguments.count {
             let directory = URL(fileURLWithPath: CommandLine.arguments[flag + 1], isDirectory: true)
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            window.orderFront(nil)
             func capture(_ name: String) throws {
+                // PDFKit refreshes annotation overlays on the next run-loop turn.
+                RunLoop.main.run(until: Date().addingTimeInterval(0.15))
                 root.layoutSubtreeIfNeeded()
                 root.displayIfNeeded()
-                guard let bitmap = root.bitmapImageRepForCachingDisplay(in: root.bounds) else { throw PDFError.write }
-                root.cacheDisplay(in: root.bounds, to: bitmap)
+                let surface = root.superview ?? root
+                surface.layoutSubtreeIfNeeded()
+                guard let bitmap = surface.bitmapImageRepForCachingDisplay(in: surface.bounds) else { throw PDFError.write }
+                surface.cacheDisplay(in: surface.bounds, to: bitmap)
                 guard let png = bitmap.representation(using: .png, properties: [:]) else { throw PDFError.write }
-                try png.write(to: directory.appendingPathComponent(name + ".png"))
+                let url = directory.appendingPathComponent(name + ".png")
+                try png.write(to: url)
+                captureWindow(window, to: url)
             }
             controller.showOutline(nil)
             controller.showRead(nil)
             try capture("reading")
+            document.edit("Add Text") {
+                try document.model.setText(on: 3, text: "Added text\nReady to save", font: NSFont(name: "Helvetica", size: 18)!,
+                                           bounds: NSRect(x: 54, y: 440, width: 260, height: 60))
+            }
+            try capture("added-text")
+            controller.undoEdit(nil)
             controller.showPages(nil)
             try capture("pages")
             controller.showOrganize(nil)
@@ -188,6 +278,39 @@ enum WorkspaceTests {
             try capture("organizing-narrow")
         }
     }
+
+    // View caching omits PDFKit's annotation layers and native sheet controls.
+    // Prefer a capture of this generated fixture window when Screen Recording is available.
+    private static func captureWindow(_ window: NSWindow, to url: URL) {
+        let capture = Process()
+        capture.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+        capture.arguments = ["-x", "-o", "-l", String(window.windowNumber), url.path]
+        capture.standardError = FileHandle.nullDevice
+        do { try capture.run(); capture.waitUntilExit() } catch { return }
+    }
+}
+
+private final class WorkspacePageDrag: NSObject, NSDraggingInfo {
+    let draggingPasteboard = NSPasteboard.withUniqueName()
+    let source: NSCollectionView
+    init(source: NSCollectionView) { self.source = source }
+    deinit { draggingPasteboard.releaseGlobally() }
+    var draggingSource: Any? { source }
+    var draggingDestinationWindow: NSWindow? { source.window }
+    var draggingSourceOperationMask: NSDragOperation { .move }
+    var draggingLocation: NSPoint { .zero }
+    var draggedImageLocation: NSPoint { .zero }
+    var draggedImage: NSImage? { nil }
+    var draggingSequenceNumber: Int { 1 }
+    var draggingFormation: NSDraggingFormation = .none
+    var animatesToDestination = false
+    var numberOfValidItemsForDrop = 2
+    var springLoadingHighlight: NSSpringLoadingHighlight { .none }
+    func slideDraggedImage(to screenPoint: NSPoint) {}
+    override func namesOfPromisedFilesDropped(atDestination dropDestination: URL) -> [String]? { nil }
+    func resetSpringLoading() {}
+    func enumerateDraggingItems(options enumOpts: NSDraggingItemEnumerationOptions, for view: NSView?, classes classArray: [AnyClass],
+                                searchOptions: [NSPasteboard.ReadingOptionKey: Any], using block: (NSDraggingItem, Int, UnsafeMutablePointer<ObjCBool>) -> Void) {}
 }
 
 private final class WorkspaceFixturePage: NSView {

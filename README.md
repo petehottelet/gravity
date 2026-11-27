@@ -193,17 +193,23 @@ bash build-macos.sh --test
 open bin/Gravity.app
 ```
 
-This compiles `arm64` and `x86_64` into a universal app using system PDFKit. No PDF engine download, .NET, or third-party package is required. Copy `bin/Gravity.app` to Applications if desired. In Finder, use **Get Info → Open with → Gravity → Change All** to choose it as your PDF viewer.
+This compiles `arm64` and `x86_64` into a universal app using system PDFKit. No PDF engine download, .NET, or third-party package is required. Copy `bin/Gravity.app` to Applications if desired. Use **File → File Associations…** to see the current PDF viewer and explicitly choose Gravity as the default. The bundle includes separate app and PDF document icons.
 
-The native app uses the same document-first layout as Windows, with a **Read / Organize** switch, an **Outline / Pages** sidebar, and a header showing the filename, page count, and save state. Native Mac window controls, document tabs, menus, system typography, and SF Symbols keep the workspace familiar on macOS.
+The native app opens to **Home**, with Open PDF, Combine PDFs, recent documents, and PDF file drops. Closing the last document returns to Home. The document workspace uses the same hierarchy as Windows, with a **Read / Organize** switch, an **Outline / Pages** sidebar, and a header showing the filename, page count, and save state. Compact toolbars, native Mac window controls, document tabs, menus, system typography, and SF Symbols keep the workspace familiar on macOS. The ellipsis opens application menus within the command bar; native menus remain available.
 
-**Read** includes continuous scrolling, page-number navigation, zoom presets and Fit Page, bookmark navigation, text selection, a collapsible Find bar, printing, and form filling. **Organize** shows a thumbnail grid with multi-page selection and visible Rotate, Duplicate, and Delete actions. These actions wrap in smaller windows; the sidebar hides automatically below 700 points and can also be toggled manually. Double-click a thumbnail or press Return to read it. **More** and the **Pages** menu provide cut/copy/paste across documents, moving pages earlier/later, blank-page insertion, inserting PDFs, and extraction. Changes support undo/redo and standard save/close prompts.
+**File → App Key Color…** changes the accent, selections, logo, and live Dock icon across open windows. The setting is saved locally, defaults to Gravity blue, and adapts control colors for readable contrast.
 
-Use `Command+O/S/P` for open/save/print, `Command+Shift+S` for Save As, `Command+1/2` for Read/Organize, `Command+Control+S` to toggle the sidebar, `Command+F` to find, and `Command+Shift+F` to fill forms. Page cut/copy/paste uses `Command+Shift+X/C/V`; ordinary `Command+C` copies selected text in the reader or selected pages when the organizer has focus. Select pages with Command-click or Shift-click, or use Select all above the grid.
+**Read** includes continuous scrolling, page-number navigation, zoom presets and Fit Page, bookmark navigation, text selection, a collapsible Find bar, printing, and form filling. **Add Text** places editable text overlays with font, size, and position controls. Double-click added text to edit or delete it; this does not replace the original page text.
+
+**Organize** shows a thumbnail grid with multi-page selection and visible Rotate, Duplicate, Delete, and movement actions. Drag selected pages to reorder them in the grid or Pages sidebar. Actions wrap in smaller windows; the sidebar hides automatically below 700 points and can also be toggled manually. Double-click a thumbnail or press Return to read it. **More** and the **Pages** menu provide cut/copy/paste across documents, moving pages earlier/later, blank-page insertion, inserting PDFs, and extraction. Changes support undo/redo and standard save/close prompts.
+
+The **File** menu also combines PDFs, creates a PDF from PNG/JPEG/TIFF/BMP/HEIC images in filename order, saves selected pages to a separate PDF, and exports selected or all pages as PNG, JPEG, or UTF-8 text. Image exports use a new folder and leave existing output untouched. Combined and image-created PDFs start unsaved, preserving their source files.
+
+Use `Command+O/S/P` for open/save/print, `Command+Shift+S` for Save As, `Command+1/2` for Read/Organize, `Command+Control+S` to toggle the sidebar, `Command+F` to find, `Command+Shift+F` to fill forms, `Command+Shift+T` to add text, and `Command+Shift+H` for Home. Page cut/copy/paste uses `Command+Shift+X/C/V`; ordinary `Command+C` copies selected text in the reader or selected pages when the organizer has focus. Select pages with Command-click or Shift-click, or use Select all above the grid. `Option+Up/Down` moves selected pages earlier/later.
 
 Undoing all changes returns the document to its clean state and preserves the restored PDF bytes. Redo and undo across saved checkpoints update the modified indicator through AppKit's undo manager.
 
-The macOS app does not yet include Windows' command palette, search results panel, image/text export, images-to-PDF import, presentation mode, file watching, remembered reading positions, drag reordering, or form lists with multiple selections.
+The macOS app does not yet include Windows' command palette, search results panel, presentation mode, file watching, remembered reading positions, original page-text replacement, or form lists with multiple selections.
 
 ```sh
 bash build-macos.sh --test --package
@@ -211,7 +217,7 @@ bash build-macos.sh --test --package
 
 This writes `dist/Gravity-1.0.0-mac-universal.zip`. Local builds use an ad-hoc signature; they are not Developer ID signed or notarized for distribution.
 
-For native workspace regression tests and screenshots of generated sample documents, run `bash build-macos.sh --snapshots` on a Mac. This also checks reading and organizer transitions, bookmarks, page navigation, multiselection, page operations, undo, search, save state, and controls at narrow widths. Captures are written to the ignored `output/mac-ui/` directory.
+For native regression tests and screenshots of generated sample documents, run `bash build-macos.sh --snapshots` on a Mac. This checks Home and document lifecycle, recent files, combining, image import/export, color persistence and contrast, explicit file association changes, text overlays, drag reordering, undo, search, save state, and narrow layouts. Association tests use a fake system handler; color tests use isolated preferences. Captures are written to the ignored `output/mac-ui/` directory.
 
 ## Building
 
@@ -303,8 +309,8 @@ Saving builds the real PDF with the bundled engine in four steps:
 
 ## Limitations
 
-- Reads PDF documents. Windows can convert PNG, JPEG and BMP images into PDF pages; other document formats are not supported.
-- No annotation editing or OCR. Form filling is limited to existing AcroForm fields.
+- Reads PDF documents. Windows can convert PNG, JPEG and BMP images into PDF pages; macOS also accepts TIFF and HEIC. Other document formats are not supported.
+- No OCR or general annotation editor. macOS can add and edit free-text overlays. Form filling is limited to existing AcroForm fields.
 - Pages pasted in from *other* files don't bring those files' bookmarks along. The original document's bookmarks are kept.
 - Printing sends each page as an image at up to 300 DPI, scaled to fit the paper.
 - Startup time depends on how many fonts are installed. GDI+ (used by all WinForms apps) scans the installed fonts once per process. With about 2,800 font families, that scan alone takes about 0.65 s and the window appears in about 0.8 s. Gravity overlaps the scan with loading the document. Machines with a typical font set start noticeably faster.

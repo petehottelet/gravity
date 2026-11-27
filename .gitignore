@@ -18,6 +18,8 @@ __pycache__/
 
 # macOS and local tool caches
 .DS_Store
+._*
+__MACOSX/
 .build/
 .swiftpm/
 .ruff_cache/

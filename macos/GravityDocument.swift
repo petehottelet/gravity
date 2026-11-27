@@ -50,7 +50,8 @@ final class GravityDocument: NSDocument {
         for case let controller as DocumentWindow in windowControllers { controller.updateDocumentStatus() }
     }
 
-    func edit(_ name: String, operation: () throws -> Void) {
+    @discardableResult
+    func edit(_ name: String, operation: () throws -> Void) -> Bool {
         do {
             let beforeModel = model
             let beforeRevision = model.revision
@@ -61,7 +62,7 @@ final class GravityDocument: NSDocument {
                 refresh()
                 throw error
             }
-            if model === beforeModel && model.revision == beforeRevision { return }
+            if model === beforeModel && model.revision == beforeRevision { return true }
             preservedData = nil
             // NSDocument tracks change counts from its undo manager's groups.
             // Start a group only after an actual edit, including outside the app event loop.
@@ -71,7 +72,8 @@ final class GravityDocument: NSDocument {
             undoManager?.setActionName(name)
             if ownsGroup { undoManager?.endUndoGrouping() }
             refresh()
-        } catch { presentError(error) }
+            return true
+        } catch { presentError(error); return false }
     }
 
     private func restore(_ data: Data, name: String) {

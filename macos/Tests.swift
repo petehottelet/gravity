@@ -2,6 +2,14 @@ import AppKit
 import PDFKit
 
 enum MacTests {
+    static func failureMessage(_ error: Error) -> String {
+        if let error = error as? PDFError { return error.localizedDescription }
+        let details = error as NSError
+        if details.domain == "GravityTests" { return details.localizedDescription }
+        // File-system errors may embed local paths in localizedDescription.
+        return "Unexpected error (code \(details.code))."
+    }
+
     static func run() -> Int32 {
         var count = 0
         func check(_ condition: @autoclosure () -> Bool, _ name: String) throws {
@@ -10,6 +18,12 @@ enum MacTests {
             print("ok: \(name)")
         }
         do {
+            let privateError = CocoaError(.fileReadNoPermission, userInfo: [NSLocalizedDescriptionKey: "sensitive fixture details"])
+            try check(failureMessage(privateError) == "Unexpected error (code \(privateError.code.rawValue)).",
+                      "unexpected test errors omit file details")
+            let assertion = NSError(domain: "GravityTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Regression assertion"])
+            try check(failureMessage(assertion) == "Regression assertion" && failureMessage(PDFError.invalid) == PDFError.invalid.localizedDescription,
+                      "test failures retain assertion names and safe PDF errors")
             let model = PDFModel()
             let page = model.pdf.page(at: 0)!
             let text = PDFAnnotation(bounds: CGRect(x: 50, y: 700, width: 250, height: 30), forType: .widget, withProperties: nil)
@@ -145,12 +159,16 @@ enum MacTests {
             try check(document.windowControllers.first?.document === document, "window controller belongs to the document")
             try check(document.windowControllers.first?.window != nil, "native window is constructed")
             document.windowControllers.forEach { $0.close() }
+            try EditingTests.run { condition, name in try check(condition, name) }
             try WorkspaceTests.run { condition, name in try check(condition, name) }
+            try HomeTests.run { condition, name in try check(condition, name) }
+            try SettingsTests.run { condition, name in try check(condition, name) }
+            try FileCommandTests.run { condition, name in try check(condition, name) }
             print("All \(count) macOS checks passed.")
             return 0
         } catch {
             // Test names and generic errors only; never print fixture contents or local paths.
-            print("FAILED: \(error.localizedDescription)")
+            print("FAILED: \(failureMessage(error))")
             return 1
         }
     }

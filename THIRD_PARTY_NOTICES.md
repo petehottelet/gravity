@@ -45,7 +45,7 @@ The upstream ICU notice also contains terms for build-support scripts and an Aut
 
 The Windows application embeds 32 Lucide SVG definitions from `lucide-static` 1.79.0 and renders them locally with GDI+. The original assets, version information, ISC license, and applicable Feather MIT notices are retained in `third_party/lucide/`. The Windows build includes the complete notices as `licenses/Lucide.txt`.
 
-The browser prototype in `docs/ui-draft/` uses the same icon set, with its license retained in [docs/ui-draft/vendor/LICENSE](docs/ui-draft/vendor/LICENSE). The macOS application does not bundle these icons.
+The browser prototype in `docs/ui-draft/` uses the same icon set, with its license retained in [docs/ui-draft/vendor/LICENSE](docs/ui-draft/vendor/LICENSE). The macOS application bundles the Lucide Save icon, with the complete notices in `Contents/Resources/licenses/Lucide.txt`; its other interface icons use system SF Symbols.
 
 ## System libraries and development tools
 
